@@ -478,7 +478,7 @@ class PickPlaceEnv():
     pybullet.configureDebugVisualizer(pybullet.COV_ENABLE_RENDERING, 0)
 
     # Add robot.
-    pybullet.loadURDF(PYBULLET_ASSETS_DIR + "plane.urdf", [0, 0, -0.001])
+    pybullet.loadURDF("plane.urdf", [0, 0, -0.001])
     self.robot_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "ur5e/ur5e.urdf", [0, 0, 0], flags=pybullet.URDF_USE_MATERIAL_COLORS_FROM_MTL)
     self.ghost_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "ur5e/ur5e.urdf", [0, 0, -10])  # For forward kinematics.
     self.joint_ids = [pybullet.getJointInfo(self.robot_id, i) for i in range(pybullet.getNumJoints(self.robot_id))]
@@ -1617,6 +1617,7 @@ cv2.waitKey(1)
 
 print('available objects:')
 print(obj_list)
+cv2.waitKey(0)
 
 # %%
 cv2.destroyAllWindows()
