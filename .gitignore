@@ -24,5 +24,7 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+# Environment variables
+.env
 
 # END: /C:/Users/Ed/Desktop/Uni/yr4/fyp/.gitignore

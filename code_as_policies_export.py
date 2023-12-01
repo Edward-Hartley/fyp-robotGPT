@@ -24,13 +24,8 @@
 # 2) Run all cells and input commands under "Interactive Demo" at the bottom.
 
 # %%
-openai_api_key = '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'
-
-# %% [markdown]
-# # Setup
-
-# %%
 import os
+from dotenv import load_dotenv
 import pybullet
 import pybullet_data
 import numpy as np
@@ -53,7 +48,8 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
-client = OpenAI(api_key=openai_api_key)
+load_dotenv()
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 PYBULLET_ASSETS_DIR = 'pybullet_assets/'
 # # Download PyBullet assets.
