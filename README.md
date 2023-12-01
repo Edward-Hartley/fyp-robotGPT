@@ -1,2 +1,2 @@
 # fyp-robotGPT
-My final year project focusing on using large language robot to generate code for robot control
+My final year project focusing on using large language models to generate code for robot control
