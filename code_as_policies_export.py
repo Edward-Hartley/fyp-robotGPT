@@ -36,7 +36,7 @@ import pybullet_data
 import numpy as np
 import threading
 import copy
-import openai
+from openai import OpenAI
 import cv2
 # from google.colab.patches import cv2_imshow
 from moviepy.editor import ImageSequenceClip
@@ -53,7 +53,7 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
-openai.api_key = openai_api_key
+client = OpenAI(api_key=openai_api_key)
 
 PYBULLET_ASSETS_DIR = 'pybullet_assets/'
 # # Download PyBullet assets.
@@ -109,7 +109,7 @@ class LMP:
 
         while True:
             try:
-                code_str = openai.Completion.create(
+                code_str = client.completions.create(
                     prompt=prompt,
                     stop=self._stop_tokens,
                     temperature=self._cfg['temperature'],
@@ -169,7 +169,7 @@ class LMPFGen:
 
         while True:
             try:
-                f_src = openai.Completion.create(
+                f_src = client.completions.create(
                     prompt=prompt,
                     stop=self._stop_tokens,
                     temperature=self._cfg['temperature'],
@@ -183,7 +183,7 @@ class LMPFGen:
                 sleep(10)
 
         if fix_bugs:
-            f_src = openai.Edit.create(
+            f_src = client.edits.create(
                 model='code-davinci-edit-001',
                 input='# ' + f_src,
                 temperature=0,
