@@ -55,15 +55,15 @@ from pygments.formatters import TerminalFormatter
 
 openai.api_key = openai_api_key
 
-# Download PyBullet assets.
 PYBULLET_ASSETS_DIR = 'pybullet_assets/'
-if not os.path.exists(PYBULLET_ASSETS_DIR + 'ur5e/ur5e.urdf'):
-  !gdown --id 1Cc_fDSBL6QiDvNT4dpfAEbhbALSVoWcc
-  !gdown --id 1yOMEm-Zp_DL3nItG9RozPeJAmeOldekX
-  !gdown --id 1GsqNLhEl9dd4Mc3BM0dX3MibOI1FVWNM
-  !tar -xf ur5e.zip
-  !tar -xf robotiq_2f_85.zip
-  !tar -xf bowl.zip
+# # Download PyBullet assets.
+# if not os.path.exists(PYBULLET_ASSETS_DIR + 'ur5e/ur5e.urdf'):
+#   !gdown --id 1Cc_fDSBL6QiDvNT4dpfAEbhbALSVoWcc
+#   !gdown --id 1yOMEm-Zp_DL3nItG9RozPeJAmeOldekX
+#   !gdown --id 1GsqNLhEl9dd4Mc3BM0dX3MibOI1FVWNM
+#   !tar -xf ur5e.zip
+#   !tar -xf robotiq_2f_85.zip
+#   !tar -xf bowl.zip
 
 
 # %%
