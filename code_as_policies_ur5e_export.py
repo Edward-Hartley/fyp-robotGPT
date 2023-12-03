@@ -109,9 +109,9 @@ class LMP:
                     prompt=prompt,
                     stop=self._stop_tokens,
                     temperature=self._cfg['temperature'],
-                    engine=self._cfg['engine'],
+                    model=self._cfg['model'],
                     max_tokens=self._cfg['max_tokens']
-                )['choices'][0]['text'].strip()
+                ).choices[0].text.strip()
                 break
             except (RateLimitError, APIConnectionError) as e:
                 print(f'OpenAI API got err {e}')
@@ -169,9 +169,9 @@ class LMPFGen:
                     prompt=prompt,
                     stop=self._stop_tokens,
                     temperature=self._cfg['temperature'],
-                    engine=self._cfg['engine'],
+                    model=self._cfg['model'],
                     max_tokens=self._cfg['max_tokens']
-                )['choices'][0]['text'].strip()
+                ).choices[0].text.strip()
                 break
             except (RateLimitError, APIConnectionError) as e:
                 print(f'OpenAI API got err {e}')
@@ -184,7 +184,7 @@ class LMPFGen:
                 input='# ' + f_src,
                 temperature=0,
                 instruction='Fix the bug if there is one. Improve readability. Keep same inputs and outputs. Only small changes. No comments.',
-            )['choices'][0]['text'].strip()
+            ).choices[0].text.strip()
 
         if other_vars is None:
             other_vars = {}
@@ -1420,7 +1420,7 @@ cfg_tabletop = {
   'lmps': {
     'tabletop_ui': {
       'prompt_text': prompt_tabletop_ui,
-      'engine': 'text-davinci-003',
+      'model': 'gpt-3.5-turbo-instruct',
       'max_tokens': 512,
       'temperature': 0,
       'query_prefix': '# ',
@@ -1434,7 +1434,7 @@ cfg_tabletop = {
     },
     'parse_obj_name': {
       'prompt_text': prompt_parse_obj_name,
-      'engine': 'text-davinci-003',
+      'model': 'gpt-3.5-turbo-instruct',
       'max_tokens': 512,
       'temperature': 0,
       'query_prefix': '# ',
@@ -1448,7 +1448,7 @@ cfg_tabletop = {
     },
     'parse_position': {
       'prompt_text': prompt_parse_position,
-      'engine': 'text-davinci-003',
+      'model': 'gpt-3.5-turbo-instruct',
       'max_tokens': 512,
       'temperature': 0,
       'query_prefix': '# ',
@@ -1462,7 +1462,7 @@ cfg_tabletop = {
     },
     'parse_question': {
       'prompt_text': prompt_parse_question,
-      'engine': 'text-davinci-003',
+      'model': 'gpt-3.5-turbo-instruct',
       'max_tokens': 512,
       'temperature': 0,
       'query_prefix': '# ',
@@ -1476,7 +1476,7 @@ cfg_tabletop = {
     },
     'transform_shape_pts': {
       'prompt_text': prompt_transform_shape_pts,
-      'engine': 'text-davinci-003',
+      'model': 'gpt-3.5-turbo-instruct',
       'max_tokens': 512,
       'temperature': 0,
       'query_prefix': '# ',
@@ -1490,7 +1490,7 @@ cfg_tabletop = {
     },
     'fgen': {
       'prompt_text': prompt_fgen,
-      'engine': 'text-davinci-003',
+      'model': 'gpt-3.5-turbo-instruct',
       'max_tokens': 512,
       'temperature': 0,
       'query_prefix': '# define function: ',
@@ -1621,7 +1621,7 @@ cv2.destroyAllWindows()
 # %%
 #@title Interactive Demo { vertical-output: true }
 
-user_input = 'Put the yellow block to the left of the rightmost bowl' #@param {allow-input: true, type:"string"}
+user_input = 'Put one block in each of the bowls' #@param {allow-input: true, type:"string"}
 
 env.cache_video = []
 

@@ -24,6 +24,7 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+__temp__.*
 # Environment variables
 .env
 
