@@ -1,0 +1,83 @@
+\documentclass[12pt,twoside]{report}
+
+% some definitions for the title page
+\newcommand{\reporttitle}{ChatGPT for Robotics 2}
+\newcommand{\reportauthor}{Edward Hartley}
+\newcommand{\supervisor}{Dr Edward Johns}
+\newcommand{\reporttype}{MEng Individual Project}
+\newcommand{\degreetype}{Computing MEng}  
+
+% load some definitions and default packages
+\input{includes}
+
+% load some macros
+\input{notation}
+
+% load title page
+\begin{document}
+\input{titlepage}
+
+
+% page numbering etc.
+\pagenumbering{roman}
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\setcounter{page}{1}
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Your abstract.
+\end{abstract}
+
+\cleardoublepage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Acknowledgments}
+Comment this out if not needed.
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--- table of contents
+\fancyhead[RE,LO]{\sffamily {Table of Contents}}
+\tableofcontents 
+
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\fancyhead[LE,RO]{\slshape \rightmark}
+\fancyhead[LO,RE]{\slshape \leftmark}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width = 0.4\hsize]{./figures/imperial}
+\caption{Imperial College Logo. It's nice blue, and the font is quite stylish. But you can choose a different one if you don't like it.}
+\label{fig:logo}
+\end{figure}
+
+Figure~\ref{fig:logo} is an example of a figure. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Background}
+\newpage
+\include{background}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Contribution}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Experimental Results}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Conclusion}
+
+
+%% bibliography
+\printbibliography
+\end{document}

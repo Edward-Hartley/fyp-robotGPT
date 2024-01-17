@@ -1,0 +1,57 @@
+\section{Preliminaries}
+This section will overview the capabilities and challenges of foundational models as well as the challenges faced in robotic systems.
+
+\subsection{LLMs And Other Foundational Models}
+A foundational model is described in \cite{DBLP:journals/corr/abs-2108-07258} as any model that is trained on broad data (generally using self-supervision at scale) that can be adapted (e.g., fine-tuned) to a wide range of downstream tasks. They are often trained on internet-scale data, e.g. the Common Crawl dataset used to train GPT-3 \cite{DBLP:journals/corr/abs-2005-14165}, containing terabytes of training data and the resulting models have billions to tens of billions of parameters.
+\\
+% General strengths - common-sense understanding of the world applicable to many domains, code generation, decision-making, instruction following, any other examples of general trends in foundational model use or any other general strengths that they display across all tasks
+Foundational models encode an inherent common-sense understanding of the world gathered from their diverse training data. This allows them to be applied in a wide range of contexts including decision making, code generation and natural language-instruction following. % TODO: make this applicable to vision models too
+\\
+Foundational models can be extremely expensive to train due to the large computing resources needed. However, pre-trained versions of many leading models are available and can be specialised for a specific task via fine-tuning the model on task-relevant data. GPT-3 and GPT-4 are both fine-tuned using reinforcement learning with human feedback (RLHF) \cite{openai2023gpt4}; fine-tuning can also be combined with adaptors to expand the input or output of a model to new modalities \cite{zhang2023motiongpt}. For tasks where data to fine-tune is not available or not needed, foundational models, particularly LLMs, can be used through in-context learning. Examples and patterns relevant to a problem can be included in the input to the model (few-shot prompting), which can then be extrapolated to unseen tasks \cite{DBLP:journals/corr/abs-2005-14165}. In some cases, just defining the specification and rules of the problem can be enough for an LLM's inherent world knowledge to produce a valid and task-specific solution \cite{DBLP:journals/corr/abs-2201-07207}. Where they can be used successfully, foundational models represent an opportunity to reduce the dependence on task-specific training data for many machine learning applications. % in-context learning, zero-shot/few-shot  
+\\
+% Types super brief
+The survey \cite{hu2023generalpurpose} divides foundational models into groups defined by their input and output modalities: Vision Foundation Models (VFMs), Visual Content Generation Models (VGMs), Large Language Models (LLMs), Vision-Language Models (VLMs), and Large Multimodal Models (LMMs). It also discusses Robotics Foundational Models (RFMs) which operate directly on robot-generated data such as perception modalities and motor control outputs.
+
+\subsubsection{Technical Overview}
+There are common components and steps to many foundational models. After tokenising, or standardising, data, they often create an embedding of their input that characterises it within the space of all inputs - capturing latent semantic concepts and providing a measure of similarity. Many foundational models are generative, and some auto-regressive: their output can be appended to previous input data to create a loop that continues to generate more content.
+
+The below section uses information from \cite{firoozi2023foundation} and \cite{hu2023generalpurpose}, with further sources cited as used.
+\\ \\
+\textbf{Tokenisation} refers to converting a stream of input data into a series of one-hot vectors, where each token is predefined as a (short) string of possible data. For example, with language-based data each token could be a word, where the tokenised vector has a one in the position corresponding to the word's index in an alphabetically ordered list of all possible input words (the vocabulary). Not only text-based data can be tokenised, this can be extended to other modalities - e.g., images can be serialised to a stream of two-dimensional segments and then tokenised \cite{Yu2022CoCa:}.
+\\ \\
+These high-dimensional vectors (e.g., GPT-3 has a vocabulary of 50,257 tokens) are then converted to real-valued lower-dimensional vectors through an \textbf{embedding} transformation. A block of these vectors (to a maximum number of the size of the 'context window' of the model) is further encoded to a single embedding. This embedding vector is often intuited to be a semantic representation of the input (e.g., such that 'iron man' is closer to 'captain America' than 'ironing board').
+\\ \\
+The method of turning this encoded form of the input into an output depends on the model at hand. In language models it will be \textbf{decoded} to a vector the size of the whole vocabulary, where each value is the predicted probability of that token being the appropriate next token. This can be sampled (or the most likely token can be taken) and the resulting token can be appended to the input ('sliding' the context window forwards if necessary) before continuing; models used in this way are autoregressive models, of which the GPT family are an example.
+\\ \\
+In CLIP \cite{DBLP:journals/corr/abs-2103-00020}, a \textbf{joint embedding space} is learnt between images and textual captions. Post-training, the embedded vector of an image can be used to predict the embedding for the corresponding caption (and then decoded into text or compared to a potential caption to check for similarity).
+\\ \\
+Autoregressive models are one example of \textbf{generative models}; another is image \textbf{diffusion} models such as DALL-E2 and unCLIP \cite{ramesh2022hierarchical}. unCLIP takes the caption-conditioned image embedding that is predicted by CLIP and uses a diffusion-based model to decode embedding. The end result is an image with a high likelihood of matching the original caption.
+
+% technical overview
+% types more detailed with references to technical
+\subsubsection{Foundational Model Varieties}
+Foundational models can be divided by their input and output modalities, and each type has options varying in size, capabilities and inference speed.
+\\ \\
+% LLM - tokenisation, autoregressive, generative
+\textbf{Large Language Models (LLMs)} are perhaps the most publicly exposed foundational model. They take in a text-based prompt and generally produce a continuation of that text. This is also often specialised to form a chat interface, but LLMs can also be used to produce text encodings more generally. Models to date vary in performance and availability, with the highest performing models being expensive to run locally and some being proprietary and only accessible pre-trained through an API or web-based endpoint \cite{Zhou2023A}.
+They are particularly well-suited for in-context learning, where all task 'specialisation' of the model occurs in the prompt passed as input. In this way they are a very general problem solver needing no further training, however they still face challenges with ambiguity in instructions and a tendency to hallucinate answers instead of displaying a high uncertainty in a topic. Measures to counteract these are an area of large research 
+% TODO cover prompting methods here
+\\ \\
+% VFM - segmentation, semantic embeddings, captions, completion (needs decoder), 
+\textbf{Visual Foundation Models (VFMs)} 
+% VGM - generation
+% VLM - gpt-4-vision
+% LMM - everything!
+
+\subsection{Robotics}
+
+\section{Current State}
+
+\subsection{Perception}
+
+\subsection{Control}
+
+\subsection{Decision Making}
+\subsubsection{}
+
+
