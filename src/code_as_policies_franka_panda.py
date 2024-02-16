@@ -1015,27 +1015,29 @@ high_frame_rate = False #@param {type:"boolean"}
 
 # setup env and LMP
 env = franka_env.PickPlaceEnv(render=True, high_res=high_resolution, high_frame_rate=high_frame_rate)
-block_list = np.random.choice(franka_env.ALL_BLOCKS, size=num_blocks, replace=False).tolist()
-bowl_list = np.random.choice(franka_env.ALL_BOWLS, size=num_bowls, replace=False).tolist()
+# block_list = np.random.choice(franka_env.ALL_BLOCKS, size=num_blocks, replace=False).tolist()
+# bowl_list = np.random.choice(franka_env.ALL_BOWLS, size=num_bowls, replace=False).tolist()
+block_list = franka_env.ALL_BLOCKS[:num_blocks]
+bowl_list = franka_env.ALL_BOWLS[:num_bowls]
 obj_list = block_list + bowl_list
 _ = env.reset(obj_list)
 lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
 
-# display env
-cv2.imshow("environment", cv2.cvtColor(env.get_camera_image(), cv2.COLOR_BGR2RGB))
-cv2.waitKey(1)
+# # display env
+# cv2.imshow("environment", cv2.cvtColor(env.get_camera_image(), cv2.COLOR_BGR2RGB))
+# cv2.waitKey(1)
 
 print('available objects:')
 print(obj_list)
-cv2.waitKey(0)
+# cv2.waitKey(0)
 
 # %%
-cv2.destroyAllWindows()
+# cv2.destroyAllWindows()
 
 # %%
 #@title Interactive Demo { vertical-output: true }
 
-user_input = 'Put one block in each of the bowls' #@param {allow-input: true, type:"string"}
+user_input = 'Put each block in the bowl of matching colour' #@param {allow-input: true, type:"string"}
 
 env.cache_video = []
 
@@ -1048,3 +1050,5 @@ if env.cache_video:
   display(rendered_clip.ipython_display(autoplay=1, loop=1))
 
 
+
+# %%

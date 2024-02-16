@@ -1,6 +1,7 @@
 # BEGIN: /C:/Users/Ed/Desktop/Uni/yr4/fyp/.gitignore
 fyp/
-pybullet_assets/
+# pybullet_assets/
+report/
 # IDE files
 .vscode/
 .idea/

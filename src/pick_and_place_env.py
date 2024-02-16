@@ -8,10 +8,8 @@ from time import sleep
 
 
 # %%
-# Gripper (Robotiq 2F85) code
 
-
-PYBULLET_ASSETS_DIR = 'pybullet_assets/'
+PYBULLET_ASSETS_DIR = '../pybullet_assets/'
 
 PIXEL_SIZE = 0.00267857
 BOUNDS = np.float32([[-0.3, 0.3], [-0.8, -0.2], [0, 0.15]])  # X Y Z
@@ -47,53 +45,35 @@ ALL_BLOCKS = ['blue block', 'red block', 'green block', 'orange block', 'yellow 
 ALL_BOWLS = ['blue bowl', 'red bowl', 'green bowl', 'orange bowl', 'yellow bowl', 'purple bowl', 'pink bowl', 'cyan bowl', 'brown bowl', 'gray bowl']
 
 
-class FrankaPanda:
-  """Gripper handling for Robotiq 2F85."""
+class FrankaPandaGripper:
+  """Gripper handling for Panda robot."""
 
-  def __init__(self, robot, tool):
+  def __init__(self, robot, tool=8):
     self.robot = robot
-    self.tool = tool
-    pos = [0.1339999999999999, -0.49199999999872496, 0.5]
-    rot = pybullet.getQuaternionFromEuler([np.pi, 0, np.pi])
-    urdf = PYBULLET_ASSETS_DIR + 'robotiq_2f_85/robotiq_2f_85.urdf'
-    self.body = pybullet.loadURDF(urdf, pos, rot)
-    self.n_joints = pybullet.getNumJoints(self.body)
+    self.hand_joint = 8
+    self.finger_joints = [9, 10]
+    # self.grasp_target_joint = 11 # doesn't load this joint for some reason
+    self.max_gripper_width = 0.1
     self.activated = False
 
-    # Connect gripper base to robot tool.
-    pybullet.createConstraint(self.robot, tool, self.body, 0, jointType=pybullet.JOINT_FIXED, jointAxis=[0, 0, 0], parentFramePosition=[0, 0, 0], childFramePosition=[0, 0, -0.07], childFrameOrientation=pybullet.getQuaternionFromEuler([0, 0, np.pi / 2]))
-
     # Set friction coefficients for gripper fingers.
-    for i in range(pybullet.getNumJoints(self.body)):
-      pybullet.changeDynamics(self.body, i, lateralFriction=10.0, spinningFriction=1.0, rollingFriction=1.0, frictionAnchor=True)
-
-    # Start thread to handle additional gripper constraints.
-    self.motor_joint = 1
-    self.constraints_thread = threading.Thread(target=self.step)
-    self.constraints_thread.daemon = True
-    self.constraints_thread.start()
+    for i in self.finger_joints:
+      pybullet.changeDynamics(self.robot, i, lateralFriction=100.0, spinningFriction=10.0, rollingFriction=10.0, frictionAnchor=True)
 
   # Control joint positions by enforcing hard contraints on gripper behavior.
-  # Set one joint as the open/close motor joint (other joints should mimic).
-  def step(self):
-    while True:
-      try:
-        currj = [pybullet.getJointState(self.body, i)[0] for i in range(self.n_joints)]
-        indj = [6, 3, 8, 5, 10]
-        targj = [currj[1], -currj[1], -currj[1], currj[1], currj[1]]
-        pybullet.setJointMotorControlArray(self.body, indj, pybullet.POSITION_CONTROL, targj, positionGains=np.ones(5))
-      except:
-        return
-      sleep(0.001)
+  # Make sure both grippers match each other.
+  def setFingerMotors(self, targetPosition=0):
+    for i in self.finger_joints:
+        pybullet.setJointMotorControl2(self.robot, i, pybullet.POSITION_CONTROL, targetPosition=targetPosition, force=10)
 
   # Close gripper fingers.
   def activate(self):
-    pybullet.setJointMotorControl2(self.body, self.motor_joint, pybullet.VELOCITY_CONTROL, targetVelocity=1, force=10)
+    self.setFingerMotors(0)
     self.activated = True
 
   # Open gripper fingers.
   def release(self):
-    pybullet.setJointMotorControl2(self.body, self.motor_joint, pybullet.VELOCITY_CONTROL, targetVelocity=-1, force=10)
+    self.setFingerMotors(self.max_gripper_width / 2.0)
     self.activated = False
 
   # If activated and object in gripper: check object contact.
@@ -103,8 +83,8 @@ class FrankaPanda:
     obj, _, ray_frac = self.check_proximity()
     if self.activated:
       empty = self.grasp_width() < 0.01
-      cbody = self.body if empty else obj
-      if obj == self.body or obj == 0:
+      cbody = self.robot if empty else obj
+      if obj == self.robot or obj == 0: # object 0 is the plane
         return False
       return self.external_contact(cbody)
   #   else:
@@ -113,9 +93,9 @@ class FrankaPanda:
   # Return if body is in contact with something other than gripper
   def external_contact(self, body=None):
     if body is None:
-      body = self.body
+      body = self.robot
     pts = pybullet.getContactPoints(bodyA=body)
-    pts = [pt for pt in pts if pt[2] != self.body]
+    pts = [pt for pt in pts if pt[2] != self.robot]
     return len(pts) > 0  # pylint: disable=g-explicit-length-test
 
   def check_grasp(self):
@@ -125,14 +105,20 @@ class FrankaPanda:
     return success
 
   def grasp_width(self):
-    lpad = np.array(pybullet.getLinkState(self.body, 4)[0])
-    rpad = np.array(pybullet.getLinkState(self.body, 9)[0])
-    dist = np.linalg.norm(lpad - rpad) - 0.047813
+    lpad = np.array(pybullet.getLinkState(self.robot, 9)[0])
+    rpad = np.array(pybullet.getLinkState(self.robot, 10)[0])
+    dist = np.linalg.norm(lpad - rpad) - 0.02
     return dist
 
   def check_proximity(self):
-    ee_pos = np.array(pybullet.getLinkState(self.robot, self.tool)[0])
-    tool_pos = np.array(pybullet.getLinkState(self.body, 0)[0])
+    ee_pos = np.array(pybullet.getLinkState(self.robot, self.hand_joint)[0])
+
+    # tool_pos = np.array(pybullet.getLinkState(self.robot, self.grasp_target_joint)[0])
+    # point midway between the two fingers
+    tool_pos = (
+      np.array(pybullet.getLinkState(self.robot, self.finger_joints[0])[0]) +
+      np.array(pybullet.getLinkState(self.robot, self.finger_joints[1])[0])
+    ) / 2
     vec = (tool_pos - ee_pos) / np.linalg.norm((tool_pos - ee_pos))
     ee_targ = ee_pos + vec
     ray_data = pybullet.rayTest(ee_pos, ee_targ)[0]
@@ -155,7 +141,7 @@ class PickPlaceEnv():
     # Configure and start PyBullet.
     # python3 -m pybullet_utils.runServer
     # pybullet.connect(pybullet.SHARED_MEMORY)  # pybullet.GUI for local GUI.
-    pybullet.connect(pybullet.DIRECT)  # pybullet.GUI for local GUI.
+    pybullet.connect(pybullet.GUI)  # pybullet.GUI for local GUI.
     pybullet.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)
     pybullet.setPhysicsEngineParameter(enableFileCaching=0)
     assets_path = os.path.dirname(os.path.abspath(""))
@@ -163,11 +149,12 @@ class PickPlaceEnv():
     pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
     pybullet.setTimeStep(self.dt)
 
-    self.home_joints = (np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, 3 * np.pi / 2, 0)  # Joint angles: (J0, J1, J2, J3, J4, J5).
+    self.home_joints = [-np.pi/2,0.2,0,-1.3,0, 1.6, np.pi/4, 0, 0]  # Joint angles: (J0, J1, J2, J3, J4, J5, J6, finger_left, finger_right).
     self.home_ee_euler = (np.pi, 0, np.pi)  # (RX, RY, RZ) rotation in Euler angles.
-    self.ee_link_id = 9  # Link ID of UR5 end effector.
-    self.tip_link_id = 10  # Link ID of gripper finger tips.
+    self.ee_link_id = 8  # Link ID of UR5 end effector.
+    self.tip_link_id = 8  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
     self.gripper = None
+    self.gripper_height = 0.08
 
     self.render = render
     self.high_res = high_res
@@ -183,8 +170,9 @@ class PickPlaceEnv():
 
     # Add robot.
     pybullet.loadURDF("plane.urdf", [0, 0, -0.001])
-    self.robot_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "ur5e/ur5e.urdf", [0, 0, 0], flags=pybullet.URDF_USE_MATERIAL_COLORS_FROM_MTL)
-    self.ghost_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "ur5e/ur5e.urdf", [0, 0, -10])  # For forward kinematics.
+    self.robot_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "Panda/panda.urdf", [0, 0, 0], useFixedBase=True)
+    print(pybullet.getNumJoints(self.robot_id), 'num joints')
+    self.ghost_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "Panda/panda.urdf", [0, 0, -10], useFixedBase=True)  # For forward kinematics.
     self.joint_ids = [pybullet.getJointInfo(self.robot_id, i) for i in range(pybullet.getNumJoints(self.robot_id))]
     self.joint_ids = [j[0] for j in self.joint_ids if j[2] == pybullet.JOINT_REVOLUTE]
 
@@ -192,11 +180,11 @@ class PickPlaceEnv():
     for i in range(len(self.joint_ids)):
       pybullet.resetJointState(self.robot_id, self.joint_ids[i], self.home_joints[i])
 
-    # Add gripper.
+    # Configure gripper.
     if self.gripper is not None:
       while self.gripper.constraints_thread.is_alive():
         self.constraints_thread_active = False
-    self.gripper = FrankaPanda(self.robot_id, self.ee_link_id)
+    self.gripper = FrankaPandaGripper(self.robot_id, self.ee_link_id)
     self.gripper.release()
 
     # Add workspace.
@@ -258,9 +246,12 @@ class PickPlaceEnv():
       jointIndices=self.joint_ids,
       controlMode=pybullet.POSITION_CONTROL,
       targetPositions=joints,
-      positionGains=[0.01]*6)
+      positionGains=[0.01]*len(self.joint_ids))
 
   def movep(self, position):
+    # add offset to z to account for the gripper, copying as to not modify the original
+    position = position.copy()
+    position[2] += self.gripper_height
     """Move to target end effector position."""
     joints = pybullet.calculateInverseKinematics(
         bodyUniqueId=self.robot_id,
@@ -268,10 +259,12 @@ class PickPlaceEnv():
         targetPosition=position,
         targetOrientation=pybullet.getQuaternionFromEuler(self.home_ee_euler),
         maxNumIterations=100)
-    self.servoj(joints)
+    self.servoj(joints[:-2]) # Do not move fingers
 
   def get_ee_pos(self):
     ee_xyz = np.float32(pybullet.getLinkState(self.robot_id, self.tip_link_id)[0])
+    # take offset from z to account for the gripper
+    ee_xyz[2] -= self.gripper_height
     return ee_xyz
 
   def step(self, action=None):
@@ -302,6 +295,10 @@ class PickPlaceEnv():
       self.movep(pick_xyz)
       self.step_sim_and_render()
       ee_xyz = self.get_ee_pos()
+
+    # Wait for momentum to die down.
+    for _ in range(100):
+      self.step_sim_and_render()
 
     # Pick up object.
     self.gripper.activate()
@@ -370,7 +367,7 @@ class PickPlaceEnv():
 
   def get_camera_image(self):
     if not self.high_res:
-      image_size = (240, 240)
+      image_size = (480, 480)
       intrinsics = (120., 0, 120., 0, 120., 120., 0, 0, 1)
     else:
       image_size=(360, 360)
