@@ -4,7 +4,7 @@ from PIL import Image
 from image_utils import normalize_depth_map, overlay_depth_map
 import torch.nn.functional as F
 
-image_path = "../assets/tabletop.jpg"
+image_path = "../assets/pybullet_tabletop.jpg"
 
 depth_estimator = pipeline(task="depth-estimation")
 output = depth_estimator(image_path)
@@ -12,7 +12,7 @@ output = depth_estimator(image_path)
 print(output["predicted_depth"].shape)
 print(output["predicted_depth"])
 
-original_image = Image.open(image_path)
+original_image = Image.open(image_path).crop((0, 0, 560, 560))
 
 # Perform depth estimation (this is a placeholder for your depth estimation model's actual call)
 # depth_map = predict_depth(np.array(original_image))
@@ -30,4 +30,4 @@ normalized_depth_map = normalize_depth_map(depth_map_reshaped)
 overlayed_image = overlay_depth_map(original_image, normalized_depth_map)
 
 # Save the modified image
-overlayed_image.convert("RGB").save("../assets/modified_image_with_depth_overlay.jpg")
+overlayed_image.convert("RGB").save("../assets/modified_pybullet_image_with_depth_overlay.jpg")

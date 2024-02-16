@@ -29,7 +29,7 @@ import os
 import numpy as np
 import copy
 from openai import OpenAI
-import cv2
+# import cv2
 # from google.colab.patches import cv2_imshow
 from moviepy.editor import ImageSequenceClip
 
@@ -1021,15 +1021,15 @@ _ = env.reset(obj_list)
 lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
 
 # display env
-cv2.imshow("environment", cv2.cvtColor(env.get_camera_image(), cv2.COLOR_BGR2RGB))
-cv2.waitKey(1)
+# cv2.imshow("environment", cv2.cvtColor(env.get_camera_image(), cv2.COLOR_BGR2RGB))
+# cv2.waitKey(1)
 
 print('available objects:')
 print(obj_list)
-cv2.waitKey(0)
+# cv2.waitKey(0)
 
 # %%
-cv2.destroyAllWindows()
+# cv2.destroyAllWindows()
 
 # %%
 #@title Interactive Demo { vertical-output: true }
@@ -1041,9 +1041,11 @@ env.cache_video = []
 print('Running policy and recording video...')
 lmp_tabletop_ui(user_input, f'objects = {env.object_list}')
 
+
+
 # render video
 if env.cache_video:
   rendered_clip = ImageSequenceClip(env.cache_video, fps=35 if high_frame_rate else 25)
-  display(rendered_clip.ipython_display(autoplay=1, loop=1))
+  rendered_clip.write_gif("robot_clip.gif")
 
 

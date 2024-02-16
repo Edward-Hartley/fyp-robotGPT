@@ -141,7 +141,7 @@ class PickPlaceEnv():
     # Configure and start PyBullet.
     # python3 -m pybullet_utils.runServer
     # pybullet.connect(pybullet.SHARED_MEMORY)  # pybullet.GUI for local GUI.
-    pybullet.connect(pybullet.GUI)  # pybullet.GUI for local GUI.
+    pybullet.connect(pybullet.DIRECT)  # pybullet.GUI for local GUI.
     pybullet.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)
     pybullet.setPhysicsEngineParameter(enableFileCaching=0)
     assets_path = os.path.dirname(os.path.abspath(""))

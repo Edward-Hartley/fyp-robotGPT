@@ -5,8 +5,8 @@ import torch
 import numpy as np
 
 model = LangSAM(sam_type="vit_b")
-image_pil = Image.open("../assets/car.jpg").convert("RGB")
-text_prompt = "wheel"
+image_pil = Image.open("../assets/pybullet_tabletop.jpg").convert("RGB")
+text_prompt = "red bowl"
 masks, boxes, phrases, logits = model.predict(image_pil, text_prompt)
 print(masks, boxes, phrases, logits)
 print(masks[0].shape)
