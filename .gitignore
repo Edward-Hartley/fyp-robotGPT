@@ -1,5 +1,5 @@
 # BEGIN: /C:/Users/Ed/Desktop/Uni/yr4/fyp/.gitignore
-fyp/
+fypvenv/
 # pybullet_assets/
 report/
 # IDE files
