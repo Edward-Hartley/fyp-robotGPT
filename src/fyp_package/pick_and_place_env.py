@@ -408,6 +408,12 @@ class PickPlaceEnv():
     zrange = (0.01, 10.)
     noise=True
 
+    # Render image.
+    return self.render_image_from_position(
+        position, orientation, image_size, intrinsics, noise)
+
+  def render_image_from_position(self, position, orientation, image_size=(720, 720), intrinsics=(360., 0, 360., 0, 360., 360., 0, 0, 1), noise=True):
+
     # OpenGL camera settings.
     lookdir = np.float32([0, 0, 1]).reshape(3, 1)
     updir = np.float32([0, -1, 0]).reshape(3, 1)
