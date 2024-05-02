@@ -69,4 +69,19 @@ ee_targ = ee_pos + vec
 ray_data = p.rayTest(ee_pos, ee_targ)[0]
 obj, link, ray_frac = ray_data[0], ray_data[1], ray_data[2]
 print( obj, link, ray_frac)
+
+object_id = p.loadURDF('./pybullet_assets/' + "bowl/bowl.urdf", [0.0, -0.5, 0.0], useFixedBase=1)
+
 # %%
+# get dimensions of object
+object_dimensions = p.getAABB(object_id)
+print(object_dimensions)
+object_dimensions = np.array(object_dimensions[1]) - np.array(object_dimensions[0])
+print(object_dimensions)
+
+# plane_id = p.loadURDF("plane.urdf", [0, 0, -0.001])
+# print(p.getAABB(plane_id))
+
+
+input("Press Enter to continue...")
+

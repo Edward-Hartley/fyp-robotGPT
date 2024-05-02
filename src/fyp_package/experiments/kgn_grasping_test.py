@@ -11,27 +11,27 @@ from PIL import Image
 import pybullet
 
 #%%
-
-# to start with just look at image, depth and find properties of poses
-image = cv2.imread(demo_image_path)
-depth = np.load(demo_depth_path)
-poses = np.load(demo_poses_path)
-
-# image
-plt.imshow(image)
-plt.show()
-print(image.shape)
-
-# depth
-plt.imshow(depth)
-plt.show()
-
-# poses
-print(poses.files)
-for file in poses.files:
-    print(file, poses[file].shape)
-    print(poses[file])
-
+# 
+# # to start with just look at image, depth and find properties of poses
+# image = cv2.imread(demo_image_path)
+# depth = np.load(demo_depth_path)
+# poses = np.load(demo_poses_path)
+# 
+# # image
+# plt.imshow(image)
+# plt.show()
+# print(image.shape)
+# 
+# # depth
+# plt.imshow(depth)
+# plt.show()
+# 
+# # poses
+# print(poses.files)
+# for file in poses.files:
+#     print(file, poses[file].shape)
+#     print(poses[file])
+# 
 ##%
 # %%
 
@@ -47,29 +47,35 @@ bowl_list = franka_env.ALL_BOWLS[:3]
 obj_list = block_list + bowl_list
 _ = env.reset(obj_list)
 
-# get camera image and depth from pybullet env
-if not env.high_res:
-    image_size = (240, 240)
-    intrinsics = (120., 0, 120., 0, 120., 120., 0, 0, 1)
-else:
-    image_size=(360, 360)
-    intrinsics=(180., 0, 180., 0, 180., 180., 0, 0, 1)
+#%%
+
+# move ee to a new pose
+# env.move_ee([0., -0.4, 0.3])
 
 # top down view
-position = (0, -0.7, 0.4)
-# around x, around y, around z
-# starts looking up, positive x is right, positive y is down, positive z is forward
-orientation = (np.pi + np.pi / 16, 0, 0)
-orientation = pybullet.getQuaternionFromEuler(orientation)
+# position = (0, -0.7, 5)
+# # around x, around y, around z
+# # starts looking up, positive x is right, positive y is down, positive z is forward
+# orientation = (np.pi + np.pi / 16, 0, 0)
+# orientation = pybullet.getQuaternionFromEuler(orientation)
 
-rgb, depth, position, orientation, intrinsics = env.render_image_from_position(position, orientation, image_size=image_size, intrinsics=intrinsics)
+rgb, depth, position, orientation = env.render_image()
 
 
 # image
 plt.imshow(rgb)
 plt.show()
 
-#depth
+# wrist_pos, wrist_orn = env.get_wrist_pose()
+# position = wrist_pos
+# orientation = wrist_orn
+# camera_offset = np.array([0, 0, 0.1])
+# camera_offset = np.array(pybullet.getMatrixFromQuaternion(orientation)).reshape(3,3) @ camera_offset
+# position = np.array(position) + camera_offset
+
+# rgb, depth, position, orientation = env.render_image_from_position(position, orientation)
+
+# #depth
 plt.imshow(depth)
 plt.show()
 
@@ -77,6 +83,10 @@ plt.show()
 
 # %%
 
-# save rgb image as png
+# # save rgb image as png
 rgb_image = Image.fromarray(rgb)
-rgb_image.save('./AFFGA-Net/demo/input/pybullet_tabletop_2.png')
+rgb_image.save('../../../assets/pybullet_tabletop_2.png')
+# # save depth as npy
+np.save('../../../assets/pybullet_tabletop_2.npy', depth)
+
+# %%

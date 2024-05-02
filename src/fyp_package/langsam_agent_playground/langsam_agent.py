@@ -25,8 +25,6 @@ from fyp_package import pick_and_place_env as franka_env
 # import prompts for this experiment
 from fyp_package.langsam_agent_playground import prompts
 
-a = b
-
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
 # %%
@@ -37,6 +35,7 @@ class LMP:
         self._cfg = cfg
 
         self.prompt_examples = self._cfg['prompt_examples']
+        self.top_system_message = self._cfg['top_system_message']
 
         self._stop_tokens = list(self._cfg['stop'])
 
@@ -52,7 +51,7 @@ class LMP:
             variable_vars_str = f"{', '.join(self._variable_vars.keys())}"
         else:
             variable_vars_str = ''
-        top_system_message = prompts.top_system_message.replace('{variable_vars}', variable_vars_str)
+        top_system_message = self.top_system_message.replace('{variable_vars}', variable_vars_str)
 
         messages = [self.build_message(top_system_message, 'system')]
         for prompt in self.prompt_examples:
@@ -146,10 +145,6 @@ def merge_dicts(dicts):
 
 
 def exec_safe(code_str, gvars=None, lvars=None):
-    banned_phrases = ['import', '__']
-    for phrase in banned_phrases:
-        assert phrase not in code_str
-
     if gvars is None:
         gvars = {}
     if lvars is None:
@@ -250,13 +245,17 @@ class LMP_wrapper():
     side_idx = np.argmin(np.linalg.norm(side_positions - pos, axis=1))
     return ['top side', 'right side', 'bottom side', 'left side'][side_idx]
   
-  def get_camera_image(self):
+  def get_fixed_camera_image(self):
     return self.env.get_camera_image()
+  
+  def get_wrist_mounted_camera_image(self):
+    wrist_pose, orientation = self.env.get
 
 
 cfg_tabletop = {
   'lmps': {
     'tabletop_ui': {
+      'top_system_message': [prompts.top_system_message],
       'prompt_examples': [prompts.get_camera_image_example],
       'model': 'gpt-3.5-turbo-0125',
       'max_tokens': 512,
@@ -288,7 +287,7 @@ lmp_tabletop_coords = {
 
 
 # %%
-def setup_LMP(env, cfg_tabletop):
+def setup_LMPs(env, cfg_tabletop):
   # LMP env wrapper
   cfg_tabletop = copy.deepcopy(cfg_tabletop)
   cfg_tabletop['env'] = dict()

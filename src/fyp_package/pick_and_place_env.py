@@ -3,6 +3,7 @@ import pybullet_data
 import threading
 import numpy as np
 import os
+from fyp_package import config
 
 from time import sleep
 
@@ -151,7 +152,7 @@ class PickPlaceEnv():
 
     self.home_joints = [-np.pi/2,0.2,0,-1.3,0, 1.6, np.pi/4, 0, 0]  # Joint angles: (J0, J1, J2, J3, J4, J5, J6, finger_left, finger_right).
     self.home_ee_euler = (np.pi, 0, np.pi)  # (RX, RY, RZ) rotation in Euler angles.
-    self.ee_link_id = 8  # Link ID of UR5 end effector.
+    self.ee_link_id = 8  # Link ID of Panda end effector.
     self.tip_link_id = 8  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
     self.gripper = None
     self.gripper_height = 0.08
@@ -170,9 +171,9 @@ class PickPlaceEnv():
 
     # Add robot.
     pybullet.loadURDF("plane.urdf", [0, 0, -0.001])
-    self.robot_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "Panda/panda.urdf", [0, 0, 0], useFixedBase=True)
+    self.robot_id = pybullet.loadURDF("franka_panda/panda.urdf", [0, 0, 0], useFixedBase=True)
     print(pybullet.getNumJoints(self.robot_id), 'num joints')
-    self.ghost_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "Panda/panda.urdf", [0, 0, -10], useFixedBase=True)  # For forward kinematics.
+    self.ghost_id = pybullet.loadURDF("franka_panda/panda.urdf", [0, 0, -10], useFixedBase=True)  # For forward kinematics.
     self.joint_ids = [pybullet.getJointInfo(self.robot_id, i) for i in range(pybullet.getNumJoints(self.robot_id))]
     self.joint_ids = [j[0] for j in self.joint_ids if j[2] == pybullet.JOINT_REVOLUTE]
 
@@ -266,6 +267,16 @@ class PickPlaceEnv():
     # take offset from z to account for the gripper
     ee_xyz[2] -= self.gripper_height
     return ee_xyz
+  
+  def get_wrist_pose(self):
+    return pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
+  
+  def move_ee(self, position):
+    ee_xyz = self.get_ee_pos()
+    while np.linalg.norm(position - ee_xyz) > 0.01:
+      self.movep(position)
+      self.step_sim_and_render()
+      ee_xyz = self.get_ee_pos()
 
   def step(self, action=None):
     """Do pick and place motion primitive."""
@@ -366,13 +377,7 @@ class PickPlaceEnv():
       self.cache_video.append(self.get_camera_image())
 
   def get_camera_image(self):
-    if not self.high_res:
-      image_size = (480, 480)
-      intrinsics = (120., 0, 120., 0, 120., 120., 0, 0, 1)
-    else:
-      image_size=(360, 360)
-      intrinsics=(180., 0, 180., 0, 180., 180., 0, 0, 1)
-    color, _, _, _, _ = self.render_image(image_size, intrinsics)
+    color, _, _, _ = self.render_image()
     return color
 
   def get_reward(self):
@@ -382,7 +387,11 @@ class PickPlaceEnv():
     observation = {}
 
     # Render current image.
-    color, depth, position, orientation, intrinsics = self.render_image()
+    color, depth, position, orientation = self.render_image()
+    
+    intrinsics = np.float32([config.focal_length, 0, config.camera_image_size[0] / 2,
+                             0, config.focal_length, config.camera_image_size[1] / 2,
+                             0, 0, 1]).reshape(3, 3)
 
     # Get heightmaps and colormaps.
     points = self.get_pointcloud(depth, intrinsics)
@@ -399,20 +408,18 @@ class PickPlaceEnv():
 
     return observation
 
-  def render_image(self, image_size=(720, 720), intrinsics=(360., 0, 360., 0, 360., 360., 0, 0, 1)):
+  def render_image(self, image_size=config.camera_image_size, focal_len=config.focal_length):
 
     # Camera parameters.
-    position = (0, -0.85, 0.4)
-    orientation = (np.pi / 4 + np.pi / 48, np.pi, np.pi)
-    orientation = pybullet.getQuaternionFromEuler(orientation)
-    zrange = (0.01, 10.)
+    position = config.camera_position
+    orientation_q = config.camera_orientation_q
     noise=True
 
     # Render image.
     return self.render_image_from_position(
-        position, orientation, image_size, intrinsics, noise)
+        position, orientation_q, image_size, focal_len, noise)
 
-  def render_image_from_position(self, position, orientation, image_size=(720, 720), intrinsics=(360., 0, 360., 0, 360., 360., 0, 0, 1), noise=True):
+  def render_image_from_position(self, position, orientation, image_size=config.camera_image_size, focal_len=config.focal_length, noise=True):
 
     # OpenGL camera settings.
     lookdir = np.float32([0, 0, 1]).reshape(3, 1)
@@ -422,7 +429,6 @@ class PickPlaceEnv():
     lookdir = (rotm @ lookdir).reshape(-1)
     updir = (rotm @ updir).reshape(-1)
     lookat = position + lookdir
-    focal_len = intrinsics[0]
     znear, zfar = (0.01, 10.)
     viewm = pybullet.computeViewMatrix(position, lookat, updir)
     fovh = (image_size[0] / 2) / focal_len
@@ -459,8 +465,7 @@ class PickPlaceEnv():
     if noise:
       depth += np.random.normal(0, 0.003, depth.shape)
 
-    intrinsics = np.float32(intrinsics).reshape(3, 3)
-    return color, depth, position, orientation, intrinsics
+    return color, depth, position, orientation
 
   def get_pointcloud(self, depth, intrinsics):
     """Get 3D pointcloud from perspective depth image.

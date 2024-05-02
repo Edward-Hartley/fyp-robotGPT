@@ -1,28 +1,3 @@
-# %% [markdown]
-# Copyright 2021 Google LLC. SPDX-License-Identifier: Apache-2.0
-# 
-# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
-# 
-# https://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-
-# %% [markdown]
-# # Code as Policies Tabletop Manipulation Interactive Demo
-# 
-# This notebook is a part of the open-source code release associated with the paper:
-# 
-# [Code as Policies: Language Model Programs for Embodied Control](https://code-as-policies.github.io/)
-# 
-# This notebook gives an interactive demo for the simulated tabletop manipulation domain, seen in the paper section IV.D
-# 
-# **Instructions:**
-# 
-# 1) Obtain an OpenAI API Key in the link below and set it in the next cell:
-# https://openai.com/blog/openai-api/
-# 
-# 2) Run all cells and input commands under "Interactive Demo" at the bottom.
-
 # %%
 import os
 # from dotenv import load_dotenv
@@ -32,6 +7,7 @@ from openai import OpenAI
 # import cv2
 # from google.colab.patches import cv2_imshow
 from moviepy.editor import ImageSequenceClip
+from PIL import Image
 
 # imports for LMPs
 import shapely
@@ -46,7 +22,10 @@ from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
 # imports for Franka Panda environment
-import pick_and_place_env as franka_env
+import fyp_package.pick_and_place_env as franka_env
+
+from lang_sam import LangSAM
+from fyp_package import config, langsam_model_utils as langsam_utils
 
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
@@ -93,13 +72,20 @@ class LMP:
 
         while True:
             try:
-                code_str = client.completions.create(
-                    prompt=prompt,
-                    stop=self._stop_tokens,
-                    temperature=self._cfg['temperature'],
-                    model=self._cfg['model'],
-                    max_tokens=self._cfg['max_tokens']
-                ).choices[0].text.strip()
+                # code_str = client.completions.create(
+                #     prompt=prompt,
+                #     stop=self._stop_tokens,
+                #     temperature=self._cfg['temperature'],
+                #     model=self._cfg['model'],
+                #     max_tokens=self._cfg['max_tokens']
+                # ).choices[0].text.strip()
+                code_str = '''
+objects = ['blue block', 'red block', 'green block', 'blue bowl', 'red bowl', 'green bowl']
+# Put the red block in the corresponding bowl.
+matches = {'red block': 'red bowl'}
+say('Got it - putting the red block in the red bowl')
+for first, second in matches.items():
+  put_first_on_second(get_obj_pos(first), get_obj_pos(second))'''
                 break
             except (RateLimitError, APIConnectionError) as e:
                 print(f'OpenAI API got err {e}')
@@ -312,6 +298,8 @@ class LMP_wrapper():
     self._table_z = self._cfg['env']['coords']['table_z']
     self.render = render
 
+    self.langsam_model = LangSAM(sam_type="vit_l")
+
   def is_obj_visible(self, obj_name):
     return obj_name in self.object_names
 
@@ -335,12 +323,16 @@ class LMP_wrapper():
     return side_positions
 
   def get_obj_pos(self, obj_name):
+    rgb, depth_array, camera_position, camera_orientation_q = self.env.render_image()
+    rgb = Image.fromarray(rgb)
+
     # return the xy position of the object in robot base frame
-    return self.env.get_obj_pos(obj_name)[:2]
-
-  def get_obj_position_np(self, obj_name):
-    return self.get_pos(obj_name)
-
+    model_results = self.detect_object(obj_name, rgb, depth_array, camera_position, camera_orientation_q)
+    if len(model_results) > 0:
+      return np.float32(model_results[0]['position'][:2])
+    else:
+      return None
+  
   def get_bbox(self, obj_name):
     # return the axis-aligned object bounding box in robot base frame (not in pixels)
     # the format is (min_x, min_y, max_x, max_y)
@@ -352,16 +344,9 @@ class LMP_wrapper():
       if color in obj_name:
         return rgb
 
-  def pick_place(self, pick_pos, place_pos):
-    pick_pos_xyz = np.r_[pick_pos, [self._table_z]]
-    place_pos_xyz = np.r_[place_pos, [self._table_z]]
-    pass
-
-  def put_first_on_second(self, arg1, arg2):
-    # put the object with obj_name on top of target
-    # target can either be another object name, or it can be an x-y position in robot base frame
-    pick_pos = self.get_obj_pos(arg1) if isinstance(arg1, str) else arg1
-    place_pos = self.get_obj_pos(arg2) if isinstance(arg2, str) else arg2
+  def put_first_on_second(self, pick_pos, place_pos):
+    # put the source on top of target
+    # place and place are x-y positions in robot base frame
     self.env.step(action={'pick': pick_pos, 'place': place_pos})
 
   def get_robot_pos(self):
@@ -408,6 +393,44 @@ class LMP_wrapper():
     side_positions = self.get_side_positions()
     side_idx = np.argmin(np.linalg.norm(side_positions - pos, axis=1))
     return ['top side', 'right side', 'bottom side', 'left side'][side_idx]
+  
+  def detect_object(self, prompt, image, depth_array, camera_position, camera_orientation_q):
+
+    model_predictions, boxes, segmentation_texts = langsam_utils.langsam_predict(self.langsam_model, image, prompt)
+
+    masks = langsam_utils.get_segmentation_mask(model_predictions, config.segmentation_threshold)
+
+    bounding_cubes_world_coordinates, bounding_cubes_orientations = langsam_utils.get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q)
+
+    results = [{}] * len(segmentation_texts)
+
+    for i, bounding_cube_world_coordinates in enumerate(bounding_cubes_world_coordinates):
+
+        bounding_cube_world_coordinates[4][2] -= config.depth_offset
+
+        object_width = np.around(np.linalg.norm(bounding_cube_world_coordinates[1] - bounding_cube_world_coordinates[0]), 3)
+        object_length = np.around(np.linalg.norm(bounding_cube_world_coordinates[2] - bounding_cube_world_coordinates[1]), 3)
+        object_height = np.around(np.linalg.norm(bounding_cube_world_coordinates[5] - bounding_cube_world_coordinates[0]), 3)
+
+        print("Position of " + segmentation_texts[i] + ":", list(np.around(bounding_cube_world_coordinates[4], 3)))
+        results[i]['position'] = list(np.around(bounding_cube_world_coordinates[4], 3))
+
+        print("Dimensions:")
+        print("Width:", object_width)
+        print("Length:", object_length)
+        print("Height:", object_height)
+        results[i]['dimensions'] = {'width': object_width, 'length': object_length, 'height': object_height}
+
+        if object_width < object_length:
+            print("Orientation along shorter side (width):", np.around(bounding_cubes_orientations[i][0], 3))
+            print("Orientation along longer side (length):", np.around(bounding_cubes_orientations[i][1], 3), "\n")
+            results[i]['orientation'] = {'width': np.around(bounding_cubes_orientations[i][0], 3), 'length': np.around(bounding_cubes_orientations[i][1], 3)}
+        else:
+            print("Orientation along shorter side (length):", np.around(bounding_cubes_orientations[i][1], 3))
+            print("Orientation along longer side (width):", np.around(bounding_cubes_orientations[i][0], 3), "\n")
+            results[i]['orientation'] = {'length': np.around(bounding_cubes_orientations[i][1], 3), 'width': np.around(bounding_cubes_orientations[i][0], 3)}
+
+    return results
 
 # %% [markdown]
 # ### LMP Prompts
@@ -422,7 +445,9 @@ from plan_utils import parse_obj_name, parse_position, parse_question, transform
 objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bowl', 'green bowl']
 # place the yellow block on the yellow bowl.
 say('Ok - putting the yellow block on the yellow bowl')
-put_first_on_second('yellow block', 'yellow bowl')
+yellow_block_pos = get_obj_pos('yellow block')
+yellow_bowl_pos = get_obj_pos('yellow bowl')
+put_first_on_second(yellow_block_pos, yellow_bowl_pos)
 objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bowl', 'green bowl']
 # which block did you move.
 say('I moved the yellow block')
@@ -430,7 +455,8 @@ objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bow
 # move the green block to the top right corner.
 say('Got it - putting the green block on the top right corner')
 corner_pos = parse_position('top right corner')
-put_first_on_second('green block', corner_pos)
+green_block_pos = get_obj_pos('green block')
+put_first_on_second(green_block_pos, corner_pos)
 objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bowl', 'green bowl']
 # stack the blue bowl on the yellow bowl on the green block.
 order_bottom_to_top = ['green block', 'yellow block', 'blue bowl']
@@ -441,66 +467,72 @@ objects = ['cyan block', 'white block', 'cyan bowl', 'blue block', 'blue bowl', 
 matches = {'cyan block': 'cyan bowl'}
 say('Got it - placing the cyan block on the cyan bowl')
 for first, second in matches.items():
-  put_first_on_second(first, get_obj_pos(second))
+  put_first_on_second(get_obj_pos(first), get_obj_pos(second))
 objects = ['cyan block', 'white block', 'cyan bowl', 'blue block', 'blue bowl', 'white bowl']
 # make a line of blocks on the right side.
 say('No problem! Making a line of blocks on the right side')
 block_names = parse_obj_name('the blocks', f'objects = {get_obj_names()}')
 line_pts = parse_position(f'a 30cm vertical line on the right with {len(block_names)} points')
 for block_name, pt in zip(block_names, line_pts):
-  put_first_on_second(block_name, pt)
+  put_first_on_second(get_obj_pos(block_name), pt)
 objects = ['yellow block', 'red block', 'yellow bowl', 'gray block', 'gray bowl', 'red bowl']
 # put the small banana colored thing in between the blue bowl and green block.
 say('Sure thing - putting the yellow block between the blue bowl and the green block')
+yellow_block_pos = get_obj_pos('yellow block')
 target_pos = parse_position('a point in the middle betweeen the blue bowl and the green block')
-put_first_on_second('yellow block', target_pos)
+put_first_on_second(yellow_block_pos, target_pos)
 objects = ['yellow block', 'red block', 'yellow bowl', 'gray block', 'gray bowl', 'red bowl']
 # can you cut the bowls in half.
 say('no, I can only move objects around')
 objects = ['yellow block', 'green block', 'yellow bowl', 'gray block', 'gray bowl', 'green bowl']
 # stack the blocks on the right side with the gray one on the bottom.
 say('Ok. stacking the blocks on the right side with the gray block on the bottom')
+gray_block_pos = get_obj_pos('gray block')
 right_side = parse_position('the right side')
-put_first_on_second('gray block', right_side)
+put_first_on_second(gray_block_pos, right_side)
 order_bottom_to_top = ['gray block', 'green block', 'yellow block']
 stack_objects_in_order(object_names=order_bottom_to_top)
 objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bowl', 'green bowl']
 # hide the blue bowl.
 bowl_name = np.random.choice(['yellow bowl', 'green bowl'])
 say(f'Sounds good! Hiding the blue bowl under the {bowl_name}')
-put_first_on_second(bowl_name, 'blue bowl')
+put_first_on_second(get_obj_pos(bowl_name), 'blue bowl')
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
 # move the grass-colored bowl to the left.
 say('Sure - moving the green bowl left by 10 centimeters')
+green_bowl_pos = get_obj_pos('green bowl')
 left_pos = parse_position('a point 10cm left of the green bowl')
-put_first_on_second('green bowl', left_pos)
+put_first_on_second(green_bowl_pos, left_pos)
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
 # why did you move the red bowl.
 say(f'I did not move the red bowl')
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
 # undo that.
 say('Sure - moving the green bowl right by 10 centimeters')
+green_bowl_pos = get_obj_pos('green bowl')
 left_pos = parse_position('a point 10cm right of the green bowl')
-put_first_on_second('green bowl', left_pos)
+put_first_on_second(green_bowl_pos, left_pos)
 objects = ['brown bowl', 'green block', 'brown block', 'green bowl', 'blue bowl', 'blue block']
 # place the top most block to the corner closest to the bottom most block.
 top_block_name = parse_obj_name('top most block', f'objects = {get_obj_names()}')
 bottom_block_name = parse_obj_name('bottom most block', f'objects = {get_obj_names()}')
 closest_corner_pos = parse_position(f'the corner closest to the {bottom_block_name}', f'objects = {get_obj_names()}')
 say(f'Putting the {top_block_name} on the {get_corner_name(closest_corner_pos)}')
-put_first_on_second(top_block_name, closest_corner_pos)
+put_first_on_second(get_obj_pos(top_block_name), closest_corner_pos)
 objects = ['brown bowl', 'green block', 'brown block', 'green bowl', 'blue bowl', 'blue block']
 # move the brown bowl to the side closest to the green block.
+brown_bowl_pos = get_obj_pos('brown bowl')
 closest_side_position = parse_position('the side closest to the green block')
 say(f'Got it - putting the brown bowl on the {get_side_name(closest_side_position)}')
-put_first_on_second('brown bowl', closest_side_position)
+put_first_on_second(brown_bowl_pos, closest_side_position)
 objects = ['brown bowl', 'green block', 'brown block', 'green bowl', 'blue bowl', 'blue block']
 # place the green block to the right of the bowl that has the blue block.
 bowl_name = parse_obj_name('the bowl that has the blue block', f'objects = {get_obj_names()}')
 if bowl_name:
+  green_block_pos = get_obj_pos('green block')
   target_pos = parse_position(f'a point 10cm to the right of the {bowl_name}')
   say(f'No problem - placing the green block to the right of the {bowl_name}')
-  put_first_on_second('green block', target_pos)
+  put_first_on_second(green_block_pos, target_pos)
 else:
   say('There are no bowls that has the blue block')
 objects = ['brown bowl', 'green block', 'brown block', 'green bowl', 'blue bowl', 'blue block']
@@ -508,12 +540,13 @@ objects = ['brown bowl', 'green block', 'brown block', 'green bowl', 'blue bowl'
 block_names = parse_obj_name('blocks other than the blue block', f'objects = {get_obj_names()}')
 corners = parse_position('the bottom corners')
 for block_name, pos in zip(block_names, corners):
-  put_first_on_second(block_name, pos)
+  put_first_on_second(get_obj_pos(block_name), pos)
 objects = ['pink block', 'gray block', 'orange block']
 # move the pinkish colored block on the bottom side.
 say('Ok - putting the pink block on the bottom side')
+pink_block_pos = get_obj_pos('pink block')
 bottom_side_pos = parse_position('the bottom side')
-put_first_on_second('pink block', bottom_side_pos)
+put_first_on_second(pink_block_pos, bottom_side_pos)
 objects = ['yellow bowl', 'blue block', 'yellow block', 'blue bowl']
 # is the blue block to the right of the yellow bowl?
 if parse_question('is the blue block to the right of the yellow bowl?', f'objects = {get_obj_names()}'):
@@ -528,14 +561,14 @@ objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 
 # move the left most block to the green bowl.
 left_block_name = parse_obj_name('left most block', f'objects = {get_obj_names()}')
 say(f'Moving the {left_block_name} on the green bowl')
-put_first_on_second(left_block_name, 'green bowl')
+put_first_on_second(get_obj_pos(left_block_name), 'green bowl')
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
 # move the other blocks to different corners.
 block_names = parse_obj_name(f'blocks other than the {left_block_name}', f'objects = {get_obj_names()}')
 corners = parse_position('the corners')
 say(f'Ok - moving the other {len(block_names)} blocks to different corners')
 for block_name, pos in zip(block_names, corners):
-  put_first_on_second(block_name, pos)
+  put_first_on_second(get_obj_pos(block_name), pos)
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
 # is the pink block on the green bowl.
 if parse_question('is the pink block on the green bowl', f'objects = {get_obj_names()}'):
@@ -560,33 +593,35 @@ stack_objects_in_order(object_names=order_bottom_to_top)
 objects = ['yellow block', 'green block', 'yellow bowl', 'gray block', 'gray bowl', 'green bowl']
 # show me what happens when the desert gets flooded by the ocean.
 say('putting the yellow bowl on the blue bowl')
-put_first_on_second('yellow bowl', 'blue bowl')
+yellow_bowl_pos = get_obj_pos('yellow bowl')
+put_first_on_second(yellow_bowl_pos, 'blue bowl')
 objects = ['pink block', 'gray block', 'orange block']
 # move all blocks 5cm toward the top.
 say('Ok - moving all blocks 5cm toward the top')
 block_names = parse_obj_name('the blocks', f'objects = {get_obj_names()}')
 for block_name in block_names:
   target_pos = parse_position(f'a point 5cm above the {block_name}')
-  put_first_on_second(block_name, target_pos)
+  put_first_on_second(get_obj_pos(block_name), target_pos)
 objects = ['cyan block', 'white block', 'purple bowl', 'blue block', 'blue bowl', 'white bowl']
 # make a triangle of blocks in the middle.
 block_names = parse_obj_name('the blocks', f'objects = {get_obj_names()}')
 triangle_pts = parse_position(f'a triangle with size 10cm around the middle with {len(block_names)} points')
 say('Making a triangle of blocks around the middle of the workspace')
 for block_name, pt in zip(block_names, triangle_pts):
-  put_first_on_second(block_name, pt)
+  put_first_on_second(get_obj_pos(block_name), pt)
 objects = ['cyan block', 'white block', 'purple bowl', 'blue block', 'blue bowl', 'white bowl']
 # make the triangle smaller.
 triangle_pts = transform_shape_pts('scale it by 0.5x', shape_pts=triangle_pts)
 say('Making the triangle smaller')
 block_names = parse_obj_name('the blocks', f'objects = {get_obj_names()}')
 for block_name, pt in zip(block_names, triangle_pts):
-  put_first_on_second(block_name, pt)
+  put_first_on_second(get_obj_pos(block_name), pt)
 objects = ['brown bowl', 'red block', 'brown block', 'red bowl', 'pink bowl', 'pink block']
 # put the red block on the farthest bowl.
 farthest_bowl_name = parse_obj_name('the bowl farthest from the red block', f'objects = {get_obj_names()}')
 say(f'Putting the red block on the {farthest_bowl_name}')
-put_first_on_second('red block', farthest_bowl_name)
+red_block_pos = get_obj_pos('red block')
+put_first_on_second(red_block_pos, farthest_bowl_name)
 '''.strip()
 
 # %%
@@ -818,7 +853,9 @@ line = make_line_by_length(1)
 new_shape = scale(line, xfact=2, yfact=2)
 
 # example: put object1 on top of object0.
-put_first_on_second('object1', 'object0')
+object1_pos = get_obj_pos('object1')
+object0_pos = get_obj_pos('object0')
+put_first_on_second(object1_pos, object0_pos)
 
 # example: get the position of the first object.
 obj_names = get_obj_names()
@@ -1014,8 +1051,8 @@ high_frame_rate = False #@param {type:"boolean"}
 
 # setup env and LMP
 env = franka_env.PickPlaceEnv(render=True, high_res=high_resolution, high_frame_rate=high_frame_rate)
-block_list = np.random.choice(franka_env.ALL_BLOCKS, size=num_blocks, replace=False).tolist()
-bowl_list = np.random.choice(franka_env.ALL_BOWLS, size=num_bowls, replace=False).tolist()
+block_list = franka_env.ALL_BLOCKS[:num_blocks]
+bowl_list = franka_env.ALL_BOWLS[:num_bowls]
 obj_list = block_list + bowl_list
 _ = env.reset(obj_list)
 lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
@@ -1034,7 +1071,7 @@ print(obj_list)
 # %%
 #@title Interactive Demo { vertical-output: true }
 
-user_input = 'Put one block in each of the bowls' #@param {allow-input: true, type:"string"}
+user_input = 'Put the red block in the corresponding bowl' #@param {allow-input: true, type:"string"}
 
 env.cache_video = []
 
@@ -1047,5 +1084,3 @@ lmp_tabletop_ui(user_input, f'objects = {env.object_list}')
 if env.cache_video:
   rendered_clip = ImageSequenceClip(env.cache_video, fps=35 if high_frame_rate else 25)
   rendered_clip.write_gif("robot_clip.gif")
-
-
