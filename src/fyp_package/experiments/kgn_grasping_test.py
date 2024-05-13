@@ -1,8 +1,8 @@
 #%%
 
-demo_image_path = './KGN_grasping/src/demo/color_img_0.png'
-demo_depth_path = './KGN_grasping/src/demo/depth_raw_0.npy'
-demo_poses_path = './KGN_grasping/src/demo/poses_0.npz'
+# demo_image_path = './KGN_grasping/src/demo/color_img_0.png'
+# demo_depth_path = './KGN_grasping/src/demo/depth_raw_0.npy'
+# demo_poses_path = './KGN_grasping/src/demo/poses_0.npz'
 
 import numpy as np
 import cv2
@@ -36,7 +36,7 @@ import pybullet
 # %%
 
 # imports for Franka Panda environment
-from fyp_package import pick_and_place_env as franka_env
+from fyp_package.experiments import pick_and_place_env as franka_env
 
 #%%
 
@@ -85,8 +85,8 @@ plt.show()
 
 # # save rgb image as png
 rgb_image = Image.fromarray(rgb)
-rgb_image.save('../../../assets/pybullet_tabletop_2.png')
+rgb_image.save('./assets/pybullet_tabletop_2.png')
 # # save depth as npy
-np.save('../../../assets/pybullet_tabletop_2.npy', depth)
+np.save('./assets/pybullet_tabletop_2.npy', depth)
 
 # %%

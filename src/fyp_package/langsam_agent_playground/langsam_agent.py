@@ -21,7 +21,7 @@ from shapely.affinity import *
 from openai import RateLimitError, APIConnectionError
 
 # imports for Franka Panda environment
-from fyp_package import pick_and_place_env as franka_env
+from fyp_package.experiments import pick_and_place_env as franka_env
 # import prompts for this experiment
 from fyp_package.langsam_agent_playground import prompts
 

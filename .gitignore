@@ -15,6 +15,7 @@ vendor/
 # Build output
 build/
 dist/
+data/
 # Logs and databases
 *.log
 *.sqlite
@@ -28,5 +29,8 @@ Thumbs.db
 __temp__.*
 # Environment variables
 .env
+# Python cache
+src/fyp_package.egg-info
+
 
 # END: /C:/Users/Ed/Desktop/Uni/yr4/fyp/.gitignore

@@ -1,7 +1,7 @@
 from transformers import pipeline
 import numpy as np
 from PIL import Image
-from image_utils import normalize_depth_map, overlay_depth_map
+from fyp_package.utils import normalize_depth_map, overlay_depth_map
 import torch.nn.functional as F
 
 image_path = "../assets/tabletop.jpg"

@@ -3,9 +3,9 @@ from lang_sam import LangSAM
 import torch
 import numpy as np
 
-model = LangSAM(sam_type="vit_l")
+model = LangSAM(sam_type="vit_b")
 image_pil = Image.open("./assets/pybullet_tabletop_2.png").convert("RGB")
-text_prompt = "blue block . red block . green block"
+text_prompt = "green bowl"
 masks, boxes, phrases, logits = model.predict(image_pil, text_prompt)
 print(masks, boxes, phrases, logits)
 print(masks[0].shape)
@@ -30,3 +30,4 @@ for i, mask in enumerate(masks):
     # Save the mask
     mask_image = Image.fromarray((mask * 255).byte().numpy())
     mask_image.save(f'./assets/pybullet_tabletop_2_mask_{i}_mask.png')
+    np.save(f'./assets/pybullet_tabletop_2_mask_{i}_mask.npy', mask.numpy())

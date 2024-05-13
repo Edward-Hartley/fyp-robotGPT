@@ -1,5 +1,5 @@
 from PIL import Image
-from fyp_package import langsam_model_utils as langsam_utils, config
+from fyp_package import config, object_detection_utils as langsam_utils
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
