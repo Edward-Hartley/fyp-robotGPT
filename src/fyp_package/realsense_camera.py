@@ -51,8 +51,14 @@ class RealsenseCamera:
         self.fovv_rad = 2 * np.arctan(self.height / (2 * self.intrinsics.fy))
         self.fovv_deg = np.degrees(self.fovv_rad)
 
-
-    def get_frame(self, save=False, save_path=None):
+    '''
+    Get a frame from the camera
+    save: bool, save the frame to the path specified in save_paths
+    save_path_rgb: str, path to save the color image, saved with cv2.imwrite
+    save_path_depth: str, path to save the depth image, saved as np.ndarray
+    return: tuple of np.ndarray, color image and depth image
+    '''
+    def get_frame(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):
         # Streaming loop
         while True:
             # Get frameset of color and depth
@@ -89,9 +95,8 @@ class RealsenseCamera:
             break
 
         if save:
-            if save_path is None:
-                save_path = config.latest_camera_image_path
-            cv2.imwrite(save_path, color_image)
+            cv2.imwrite(save_path_rgb, color_image)
+            np.save(save_path_depth, depth_image)
         
         return color_image, depth_image
     
@@ -107,3 +112,18 @@ class RealsenseCamera:
     def __del__(self):
         self.pipeline.stop()
 
+
+if __name__ == "__main__":
+    camera = RealsenseCamera()
+    color_image, depth_image = camera.get_frame(save=True)
+    print(color_image.shape, depth_image.shape)
+    print(camera.get_intrinsics())
+    print(camera.get_resolution())
+    print(camera.get_fov())
+    np.save("data/latest_camera_specs.npy",
+            {
+                "camera_image_size": camera.get_resolution(),
+                "intrinsics": camera.get_intrinsics(),
+                "fov": camera.get_fov()
+            })
+    del camera

@@ -389,8 +389,8 @@ class PickPlaceEnv():
     # Render current image.
     color, depth, position, orientation = self.render_image()
     
-    intrinsics = np.float32([config.focal_length, 0, config.camera_image_size[0] / 2,
-                             0, config.focal_length, config.camera_image_size[1] / 2,
+    intrinsics = np.float32([config.focal_lengths[0], 0, config.camera_image_size[0] / 2,
+                             0, config.focal_lengths[1], config.camera_image_size[1] / 2,
                              0, 0, 1]).reshape(3, 3)
 
     # Get heightmaps and colormaps.
@@ -408,7 +408,7 @@ class PickPlaceEnv():
 
     return observation
 
-  def render_image(self, image_size=config.camera_image_size, focal_len=config.focal_length):
+  def render_image(self, image_size=config.camera_image_size, focal_len=config.focal_lengths):
 
     # Camera parameters.
     position = config.camera_position
@@ -419,7 +419,7 @@ class PickPlaceEnv():
     return self.render_image_from_position(
         position, orientation_q, image_size, focal_len, noise)
 
-  def render_image_from_position(self, position, orientation, image_size=config.camera_image_size, focal_len=config.focal_length, noise=True):
+  def render_image_from_position(self, position, orientation, image_size=config.camera_image_size, focal_len=config.focal_lengths, noise=True):
 
     # OpenGL camera settings.
     lookdir = np.float32([0, 0, 1]).reshape(3, 1)

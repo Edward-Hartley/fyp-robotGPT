@@ -2,15 +2,19 @@ import socket
 import pickle
 from PIL import Image
 import torch
+from multiprocessing import Process, Queue, set_start_method
 from threading import Thread
+import signal
 import numpy as np
-
+import os
 from lang_sam import LangSAM
 
-def load_model():
-    # Uses 450 MB of GPU memory to load the model, consider loading on demand
-    model = LangSAM(sam_type="vit_b")
-    return model
+# Ensure the 'spawn' start method is used for multiprocessing
+try:
+    set_start_method('spawn')
+except RuntimeError:
+    pass
+
 
 def send_data(client_socket, data):
     serialized_data = pickle.dumps(data)
@@ -18,12 +22,23 @@ def send_data(client_socket, data):
     client_socket.sendall(length.to_bytes(4, 'big'))
     client_socket.sendall(serialized_data)
 
-class ModelServer:
+def predict_worker(file_path, prompt, client_socket):
+    model = LangSAM(sam_type="vit_b")
+    image = Image.open(file_path)
+    masks, boxes, phrases, logits = model.predict(image, prompt)
+    
+    # Turn data into numpy arrays
+    masks = [mask.detach().cpu().numpy() for mask in masks]
+    boxes = [box.detach().cpu().numpy() for box in boxes]
+    phrases = [phrase for phrase in phrases]
+
+    send_data(client_socket, (masks, boxes, phrases))
+
+class LangsamServer:
     def __init__(self, host='', port=9998):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((host, port))
         self.server_socket.listen(5)
-        self.model = load_model()
         print("Server listening on port", port)
 
     def handle_client(self, client_socket):
@@ -32,20 +47,16 @@ class ModelServer:
             if not data:
                 break
             file_path, prompt = pickle.loads(data)
-            response = self.predict(file_path, prompt)
+            # result_queue = Queue()
+            # # check capacity
+            # print(result_queue.qsize())
+            process = Process(target=predict_worker, args=(file_path, prompt, client_socket))
+            process.start()
+            process.join()
 
-            response_length = len(pickle.dumps(response))
-            send_data(client_socket, response)
+            torch.cuda.empty_cache()
+
         client_socket.close()
-
-    def predict(self, file_path, prompt):
-        image = Image.open(file_path)
-        masks, boxes, phrases, logits = self.model.predict(image, prompt)
-        # turn data into numpy arrays
-        masks = [mask.detach().cpu().numpy() for mask in masks]
-        boxes = [box.detach().cpu().numpy() for box in boxes]
-        phrases = [phrase for phrase in phrases]
-        return masks, boxes, phrases
 
     def run(self):
         while True:
@@ -55,5 +66,6 @@ class ModelServer:
             client_thread.start()
 
 if __name__ == '__main__':
-    ms = ModelServer()
-    ms.run()
+    ls = LangsamServer()
+    signal.signal(signal.SIGINT, lambda signal, frame: ls.shutdown())
+    ls.run()

@@ -8,13 +8,16 @@ camera = realsense_camera.RealsenseCamera()
 robot = robot_client.RobotClient()
 models = model_client.ModelClient()
 
+# Move robot out of the way
+robot.move_robot(config.robot_tucked_position, config.robot_vertical_orientation_q, relative=False)
+
 # get camera image
 frame = camera.get_frame(save=True)
 color_image = frame[0]
 depth_image = frame[1]
 
 # segment object
-masks, _, matches = models.langsam_predict(config.latest_camera_image_path, "espresso_cup")
+masks, _, matches = models.langsam_predict(config.latest_rgb_image_path, "espresso_cup")
 
 # get object pose
 object_poses = object_detection_utils.get_object_cube_from_segmentation(
@@ -23,13 +26,17 @@ object_poses = object_detection_utils.get_object_cube_from_segmentation(
     config.camera_position, config.camera_orientation_q, camera.get_intrinsics()
     )
 
-object_pose = object_poses[0]['position']
+object_pos = object_poses[0]['position']
 
 input("Press Enter to continue...")
-orientation = list(config.robot_ready_orientation_q[3:]) + list(config.robot_ready_orientation_q[:3])
 
 # move robot to object
-robot.move_robot(object_pose, orientation, relative=False)
+above_object_position = [object_pos[0], object_pos[1], config.robot_ready_position[2]]
+object_pos[2] += 0.02 # reduce collision risk with table
+
+robot.open_gripper()
+robot.move_robot(above_object_position, config.robot_vertical_orientation_q, relative=False)
+robot.move_robot(object_pos, config.robot_vertical_orientation_q, relative=False)
 time.sleep(0.2)
 
 # close gripper
@@ -37,7 +44,7 @@ robot.close_gripper()
 time.sleep(0.2)
 
 # move robot to ready position
-robot.move_robot([0, 0, 0.1], [0, 0, 0, 1], relative=True)
+robot.move_robot(config.robot_ready_position, config.robot_vertical_orientation_q, relative=False)
 
 # pause
 input("Press Enter to continue...")

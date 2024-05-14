@@ -17,7 +17,7 @@ fingerUnitParserUnit = ['mm', 'turn', 'percent'][0]
 
 # Robot class
 class Robot:
-    def __init__(self, robot_type: str = config.robot_type, host='', port=9999):
+    def __init__(self, robot_type: str = config.robot_type, host='', port=config.robot_server_port):
         self.robot_type = robot_type
 
         pose_client.kinova_robotTypeParser(self.robot_type)
@@ -51,7 +51,7 @@ class Robot:
         client_socket.close()
 
 
-    def move_robot(self, position=config.robot_ready_position, orientation_q=config.robot_ready_orientation_q, relative=False):
+    def move_robot(self, position=config.robot_ready_position, orientation_q=config.robot_vertical_orientation_q, relative=False):
         
         # Sets global vars for current position and orientation of the robot
         pose_client.getcurrentCartesianCommand(pose_client.prefix)

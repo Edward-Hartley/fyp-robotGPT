@@ -2,12 +2,13 @@ import cv2
 import numpy as np
 import time
 from fyp_package import robot_client, realsense_camera
-from fyp_package.experiments.proto import plot_tf, plot_set_axes_equal, tf, quat2rot, tf_rot, tf_trans, tf_inv, AprilGrid
+from fyp_package.experiments.proto import plot_tf, plot_set_axes_equal, AprilGrid
+from fyp_package.utils import tf_rot, tf_trans, quat2rot, tf
 import matplotlib.pyplot as plt
 
 def inv_rot_and_trans(R, t):
     tf_m = tf(R, t)
-    inv_tf_m = tf_inv(tf_m)
+    inv_tf_m = np.linalg.inv(tf_m)
     return tf_rot(inv_tf_m), tf_trans(inv_tf_m)
 
 def new_tf_figure(R, t, ax=None):
@@ -77,7 +78,6 @@ if __name__ == "__main__":
             continue
 
         t_gripper2base, gripper2base_q = result
-        gripper2base_q = gripper2base_q[3:] + gripper2base_q[:3]
 
         # invert to get base to gripper
         R_base2gripper, t_base2gripper = inv_rot_and_trans(quat2rot(gripper2base_q), t_gripper2base)

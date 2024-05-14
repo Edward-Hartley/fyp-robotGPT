@@ -2,6 +2,8 @@ import socket
 import pickle
 import matplotlib.pyplot as plt
 from PIL import Image
+from fyp_package import config
+import numpy as np
 # from torchvision.transforms import functional as transforms
 # from torchvision.utils import draw_bounding_boxes, draw_segmentation_masks
 
@@ -16,16 +18,44 @@ def recv_data(client_socket):
     return pickle.loads(data)
 
 class ModelClient:
-    def __init__(self, host='localhost', port=9998):
-        self.host = host
-        self.port = port
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_socket.connect((self.host, self.port))
+    def __init__(self, host='localhost'):
+        self.servers = {}
+        for model_name, port in config.model_server_ports.items():
+            self.servers[model_name] = self.connect_to_server(host, port)
 
-    def langsam_predict(self, image_path, prompt):
-        data = pickle.dumps((image_path, prompt))
-        self.client_socket.sendall(data)
-        return recv_data(self.client_socket)
+    def connect_to_server(self, host, port):
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            client_socket.connect((host, port))
+            print(f"Connected to {port}")
+            return client_socket
+        except ConnectionRefusedError:
+            print(f"Could not connect to {port}")
+            return None
+
+    def send_request(self, model_name, data):
+        if model_name not in self.servers or self.servers[model_name] is None:
+            raise ConnectionError(f"No connection to {model_name} server.")
+        client_socket = self.servers[model_name]
+        serialized_data = pickle.dumps(data)
+        client_socket.sendall(serialized_data)
+        return recv_data(client_socket)
+
+    def langsam_predict(self, image_path, prompt, save=False, save_path=config.latest_segmentation_masks_path):
+        data = (image_path, prompt)
+        response = self.send_request('langsam', data)
+        masks, boxes, phrases = response
+        if save:
+            np.save(save_path, masks)
+        return masks, boxes, phrases
+    
+    def contact_graspnet_predict(self, depth_path, rgb_path, mask_path, save=False, save_path=config.latest_grasp_detection_path):
+        data = (depth_path, rgb_path, mask_path)
+        response = self.send_request('graspnet', data)
+        best_grasp_cam, best_score, best_contact_pt = response
+        if save:
+            np.savez(save_path, pred_grasp_cam=best_grasp_cam, score=best_score, contact_pt=best_contact_pt)
+        return best_grasp_cam, best_score, best_contact_pt
 
     # def visualize_results(self, image, masks, boxes, phrases):
     #     _, ax = plt.subplots(1, 1 + len(masks), figsize=(5 + (5 * len(masks)), 5))
@@ -47,10 +77,26 @@ class ModelClient:
     #     plt.show()
 
     def close(self):
-        self.client_socket.close()
+        for model_name, client_socket in self.servers.items():
+            if client_socket:
+                client_socket.close()
 
 if __name__ == "__main__":
     client = ModelClient()
-    masks, boxes, phrases = client.langsam_predict('./assets/pybullet_tabletop_2.png', 'green_bowl')
-    print(masks, boxes, phrases)
-    client.close()
+    # Example usage
+    try:
+        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "espresso cup", save=True)
+        print(masks, boxes, phrases)
+        # plt.imshow(np.load(config.latest_segmentation_masks_path)[0])
+        # plt.show()
+
+        best_grasp_cam, best_score, best_contact_pt = client.contact_graspnet_predict(
+            config.latest_depth_image_path, config.latest_rgb_image_path, config.latest_segmentation_masks_path, save=True
+        )
+        results = np.load(config.latest_grasp_detection_path)
+        print(results['pred_grasp_cam'], results['score'], results['contact_pt'])
+
+    except ConnectionError as e:
+        print(e)
+    finally:
+        client.close()
