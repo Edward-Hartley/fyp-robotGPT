@@ -29,6 +29,7 @@ Thumbs.db
 __temp__.*
 # Environment variables
 .env
+.openai_key
 # Python cache
 src/fyp_package.egg-info
 

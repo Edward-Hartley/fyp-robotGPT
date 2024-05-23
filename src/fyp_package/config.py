@@ -68,8 +68,15 @@ latest_grasp_detection_path = "./data/latest_grasp_detection.npz"
 contact_graspnet_checkpoint_dir = "/home/edward/Imperial/fyp-robotGPT/src/fyp_package/experiments/contact_graspnet/checkpoints/scene_test_2048_bs3_hor_sigma_001"
 
 #### Server ports
+
 model_server_ports = {
     "graspnet": 9997,
     "langsam": 9998,
 }
 robot_server_port = 9999
+
+#### OpenAI
+
+default_openai_model = "gpt-4o"
+cheap_openai_model = "gpt-3.5-turbo"
+model_temperature = 0.0

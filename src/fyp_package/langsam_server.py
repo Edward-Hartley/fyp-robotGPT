@@ -8,6 +8,7 @@ import signal
 import numpy as np
 import os
 from lang_sam import LangSAM
+from fyp_package import config
 
 # Ensure the 'spawn' start method is used for multiprocessing
 try:
@@ -35,7 +36,7 @@ def predict_worker(file_path, prompt, client_socket):
     send_data(client_socket, (masks, boxes, phrases))
 
 class LangsamServer:
-    def __init__(self, host='', port=9998):
+    def __init__(self, host='', port=config.model_server_ports["langsam"]):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((host, port))
         self.server_socket.listen(5)
