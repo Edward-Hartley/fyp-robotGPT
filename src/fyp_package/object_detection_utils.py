@@ -7,35 +7,33 @@ from shapely.geometry import MultiPoint, Polygon, polygon
 
 def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_array, camera_position, camera_orientation_q, camera_intrinsics):
 
-    bounding_cubes_world_coordinates, bounding_cubes_orientations = get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q, camera_intrinsics)
+    cubes_coords, cubes_orients = get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q, camera_intrinsics)
 
     results = [{}] * len(segmentation_texts)
 
-    for i, bounding_cube_world_coordinates in enumerate(bounding_cubes_world_coordinates):
+    for i, cube_coords in enumerate(cubes_coords):
 
-        bounding_cube_world_coordinates[4][2] -= config.depth_offset
+        width = np.around(np.linalg.norm(cube_coords['bottom']['corners'][1] - cube_coords['bottom']['corners'][0]), 3)
+        length = np.around(np.linalg.norm(cube_coords['bottom']['corners'][2] - cube_coords['bottom']['corners'][1]), 3)
+        height = np.around(np.linalg.norm(cube_coords['top']['corners'][0] - cube_coords['bottom']['corners'][0]), 3)
 
-        object_width = np.around(np.linalg.norm(bounding_cube_world_coordinates[1] - bounding_cube_world_coordinates[0]), 3)
-        object_length = np.around(np.linalg.norm(bounding_cube_world_coordinates[2] - bounding_cube_world_coordinates[1]), 3)
-        object_height = np.around(np.linalg.norm(bounding_cube_world_coordinates[5] - bounding_cube_world_coordinates[0]), 3)
-
-        print("Position of " + segmentation_texts[i] + ":", list(np.around(bounding_cube_world_coordinates[4], 3)))
-        results[i]['position'] = list(np.around(bounding_cube_world_coordinates[4], 3))
+        print("Position of " + segmentation_texts[i] + ":", list(np.around(cube_coords['top']['center'], 3)))
+        results[i]['position'] = list(np.around(cube_coords['top']['center'], 3))
 
         print("Dimensions:")
-        print("Width:", object_width)
-        print("Length:", object_length)
-        print("Height:", object_height)
-        results[i]['dimensions'] = {'width': object_width, 'length': object_length, 'height': object_height}
+        print("Width:", width)
+        print("Length:", length)
+        print("Height:", height)
+        results[i]['dimensions'] = {'width': width, 'length': length, 'height': height}
 
-        if object_width < object_length:
-            print("Orientation along shorter side (width):", np.around(bounding_cubes_orientations[i][0], 3))
-            print("Orientation along longer side (length):", np.around(bounding_cubes_orientations[i][1], 3), "\n")
-            results[i]['orientation'] = {'width': np.around(bounding_cubes_orientations[i][0], 3), 'length': np.around(bounding_cubes_orientations[i][1], 3)}
+        if width < length:
+            print("Orientation along shorter side (width):", np.around(cubes_orients[i][0], 3))
+            print("Orientation along longer side (length):", np.around(cubes_orients[i][1], 3), "\n")
+            results[i]['orientation'] = {'width': np.around(cubes_orients[i][0], 3), 'length': np.around(cubes_orients[i][1], 3)}
         else:
-            print("Orientation along shorter side (length):", np.around(bounding_cubes_orientations[i][1], 3))
-            print("Orientation along longer side (width):", np.around(bounding_cubes_orientations[i][0], 3), "\n")
-            results[i]['orientation'] = {'length': np.around(bounding_cubes_orientations[i][1], 3), 'width': np.around(bounding_cubes_orientations[i][0], 3)}
+            print("Orientation along shorter side (length):", np.around(cubes_orients[i][1], 3))
+            print("Orientation along longer side (width):", np.around(cubes_orients[i][0], 3), "\n")
+            results[i]['orientation'] = {'length': np.around(cubes_orients[i][1], 3), 'width': np.around(cubes_orients[i][0], 3)}
 
     return results
 
@@ -109,6 +107,8 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
             rect = MultiPoint([world_point[:2] for world_point in contour_world_points]).minimum_rotated_rectangle
 
             if isinstance(rect, Polygon):
+                bounding_cube = {}
+
                 rect = polygon.orient(rect, sign=-1)
                 box = rect.exterior.coords
                 box = np.array(box[:-1])
@@ -116,9 +116,14 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
                 box = np.roll(box, -box_min_x, axis=0)
                 box_top = [list(point) + [max_z_coordinate] for point in box]
                 box_btm = [list(point) + [min_z_coordinate] for point in box]
-                box_top.append(list(np.mean(box_top, axis=0)))
-                box_btm.append(list(np.mean(box_btm, axis=0)))
+                box_top_mean = list(np.mean(box_top, axis=0))
+                box_btm_mean = list(np.mean(box_btm, axis=0))
                 bounding_cubes.append(box_top + box_btm)
+
+                bounding_cube['top']['corners'] = box_top
+                bounding_cube['bottom']['corners'] = box_btm
+                bounding_cube['top']['center'] = box_top_mean
+                bounding_cube['bottom']['center'] = box_btm_mean
 
                 # Calculating rotation in world frame
                 bounding_cubes_orientation_width = np.arctan2(box[1][1] - box[0][1], box[1][0] - box[0][0])
