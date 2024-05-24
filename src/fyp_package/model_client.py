@@ -2,26 +2,18 @@ import socket
 import pickle
 import matplotlib.pyplot as plt
 from PIL import Image
-from fyp_package import config
+from fyp_package import config, utils
 import numpy as np
 # from torchvision.transforms import functional as transforms
 # from torchvision.utils import draw_bounding_boxes, draw_segmentation_masks
-
-def recv_data(client_socket):
-    data_length = int.from_bytes(client_socket.recv(4), 'big')
-    data = bytearray()
-    while len(data) < data_length:
-        packet = client_socket.recv(data_length - len(data))
-        if not packet:
-            return None
-        data.extend(packet)
-    return pickle.loads(data)
 
 class ModelClient:
     def __init__(self, host='localhost'):
         self.servers = {}
         for model_name, port in config.model_server_ports.items():
             self.servers[model_name] = self.connect_to_server(host, port)
+
+        self.active_model = None
 
     def connect_to_server(self, host, port):
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,16 +26,30 @@ class ModelClient:
             return None
 
     def send_request(self, model_name, data):
+        if self.active_model is not None and self.active_model != model_name:
+            utils.send_data(self.servers[self.active_model], "close")
+            
         if model_name not in self.servers or self.servers[model_name] is None:
             raise ConnectionError(f"No connection to {model_name} server.")
-        client_socket = self.servers[model_name]
-        serialized_data = pickle.dumps(data)
-        client_socket.sendall(serialized_data)
-        return recv_data(client_socket)
 
-    def langsam_predict(self, image_path, prompt, save=False, save_path=config.latest_segmentation_masks_path):
-        data = (image_path, prompt)
-        response = self.send_request('langsam', data)
+        self.active_model = model_name
+        client_socket = self.servers[model_name]
+        utils.send_data(client_socket, data)
+        return utils.recv_data(client_socket)
+
+    def langsam_predict(self, image_path_or_array, prompt, save=False, save_path=config.latest_segmentation_masks_path):
+        data = (image_path_or_array, prompt)
+        if isinstance(data[0], str):  # file path
+            flag = 'path'
+        elif isinstance(data[0], np.ndarray):  # numpy array
+            flag = 'array'
+        else:
+            raise ValueError("Unsupported data type")
+        
+        # Prepend the flag to the data
+        flagged_data = (flag, data)
+
+        response = self.send_request('langsam', flagged_data)
         masks, boxes, phrases = response
         if save:
             np.save(save_path, masks)

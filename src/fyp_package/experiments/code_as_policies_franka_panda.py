@@ -46,7 +46,7 @@ from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
 # imports for Franka Panda environment
-import fyp_package.experiments.pick_and_place_env as franka_env
+import fyp_package.pick_and_place_env as franka_env
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))

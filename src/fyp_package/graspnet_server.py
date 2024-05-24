@@ -11,7 +11,7 @@ import cv2
 import gc
 
 from fyp_package.experiments.contact_graspnet.contact_graspnet import config_utils, contact_grasp_estimator
-from fyp_package import config
+from fyp_package import config, utils
 
 # Ensure the 'spawn' start method is used for multiprocessing
 try:
@@ -38,12 +38,6 @@ def load_model():
     grasp_estimator.load_weights(tf_session, saver, checkpoint_dir, mode='test')
 
     return grasp_estimator, tf_session
-
-def send_data(client_socket, data):
-    serialized_data = pickle.dumps(data)
-    length = len(serialized_data)
-    client_socket.sendall(length.to_bytes(4, 'big'))
-    client_socket.sendall(serialized_data)
 
 def predict_worker(depth_path, rgb_path, mask_path, result_queue):
     grasp_estimator, tf_session = load_model()
@@ -83,17 +77,19 @@ class GraspnetServer:
 
     def handle_client(self, client_socket):
         while True:
-            data = client_socket.recv(1024)
+            data = utils.recv_data(client_socket)
             if not data:
                 break
-            depth_path, rgb_path, mask_path = pickle.loads(data)
+            if data == "close":
+                continue
+            depth_path, rgb_path, mask_path = data
             result_queue = Queue()
             process = Process(target=predict_worker, args=(depth_path, rgb_path, mask_path, result_queue))
             process.start()
             process.join()
 
             response = result_queue.get()
-            send_data(client_socket, response)
+            utils.send_data(client_socket, response)
         client_socket.close()
 
     def run(self):

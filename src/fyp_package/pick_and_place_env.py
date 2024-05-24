@@ -13,7 +13,7 @@ from time import sleep
 PYBULLET_ASSETS_DIR = './pybullet_assets/'
 
 PIXEL_SIZE = 0.00267857
-BOUNDS = np.float32([[-0.3, 0.3], [-0.8, -0.2], [0, 0.15]])  # X Y Z
+BOUNDS = config.sim_bounds
 
 # %%
 # # Global constants: pick and place objects, colors, workspace bounds
@@ -30,17 +30,9 @@ COLORS = {
     'gray':   (186/255, 176/255, 172/255, 255/255),
 }
 
-CORNER_POS = {
-  'top left corner':     (-0.3 + 0.05, -0.2 - 0.05, 0),
-  'top side':            (0,           -0.2 - 0.05, 0),
-  'top right corner':    (0.3 - 0.05,  -0.2 - 0.05, 0),
-  'left side':           (-0.3 + 0.05, -0.5,        0),
-  'middle':              (0,           -0.5,        0),
-  'right side':          (0.3 - 0.05,  -0.5,        0),
-  'bottom left corner':  (-0.3 + 0.05, -0.8 + 0.05, 0),
-  'bottom side':         (0,           -0.8 + 0.05, 0),
-  'bottom right corner': (0.3 - 0.05,  -0.8 + 0.05, 0),
-}
+CORNER_POS = config.sim_corner_pos
+
+TABLE_Z = config.sim_table_z
 
 ALL_BLOCKS = ['blue block', 'red block', 'green block', 'orange block', 'yellow block', 'purple block', 'pink block', 'cyan block', 'brown block', 'gray block']
 ALL_BOWLS = ['blue bowl', 'red bowl', 'green bowl', 'orange bowl', 'yellow bowl', 'purple bowl', 'pink bowl', 'cyan bowl', 'brown bowl', 'gray bowl']
@@ -125,13 +117,7 @@ class FrankaPandaGripper:
     ray_data = pybullet.rayTest(ee_pos, ee_targ)[0]
     obj, link, ray_frac = ray_data[0], ray_data[1], ray_data[2]
     return obj, link, ray_frac
-
-# %% [markdown]
-# ## **Table Top Sim Env**
-# Define PyBullet-based environment with a UR5e and 2-finger gripper
-
-# %%
-# Gym-style environment code
+  
 
 class PickPlaceEnv():
 
@@ -142,7 +128,7 @@ class PickPlaceEnv():
     # Configure and start PyBullet.
     # python3 -m pybullet_utils.runServer
     # pybullet.connect(pybullet.SHARED_MEMORY)  # pybullet.GUI for local GUI.
-    pybullet.connect(pybullet.DIRECT)  # pybullet.GUI for local GUI.
+    pybullet.connect(pybullet.GUI)  # pybullet.GUI for local GUI.
     pybullet.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)
     pybullet.setPhysicsEngineParameter(enableFileCaching=0)
     assets_path = os.path.dirname(os.path.abspath(""))
@@ -153,9 +139,9 @@ class PickPlaceEnv():
     self.home_joints = [-np.pi/2,0.2,0,-1.3,0, 1.6, np.pi/4, 0, 0]  # Joint angles: (J0, J1, J2, J3, J4, J5, J6, finger_left, finger_right).
     self.home_ee_euler = (np.pi, 0, np.pi)  # (RX, RY, RZ) rotation in Euler angles.
     self.ee_link_id = 8  # Link ID of Panda end effector.
-    self.tip_link_id = 8  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
+    self.tip_link_id = 11  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
     self.gripper = None
-    self.gripper_height = 0.08
+    self.gripper_height = 0.01
 
     self.render = render
     self.high_res = high_res
@@ -262,11 +248,21 @@ class PickPlaceEnv():
         maxNumIterations=100)
     self.servoj(joints[:-2]) # Do not move fingers
 
+    return joints
+
   def get_ee_pos(self):
     ee_xyz = np.float32(pybullet.getLinkState(self.robot_id, self.tip_link_id)[0])
     # take offset from z to account for the gripper
     ee_xyz[2] -= self.gripper_height
     return ee_xyz
+  
+  def get_ee_pose(self):
+    ee_pos, ee_quat = pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
+    # take offset from z to account for the gripper
+    offset = np.array([0, 0, -self.gripper_height])
+    offset_rotated = pybullet.getMatrixFromQuaternion(ee_quat) @ offset
+    ee_pos = np.array(ee_pos) + offset_rotated
+    return ee_pos, ee_quat
   
   def get_wrist_pose(self):
     return pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
@@ -408,7 +404,7 @@ class PickPlaceEnv():
 
     return observation
 
-  def render_image(self, image_size=config.camera_image_size, focal_len=config.focal_lengths):
+  def render_image(self, image_size=config.camera_image_size, focal_len=config.focal_lengths[0]):
 
     # Camera parameters.
     position = config.camera_position
@@ -419,7 +415,7 @@ class PickPlaceEnv():
     return self.render_image_from_position(
         position, orientation_q, image_size, focal_len, noise)
 
-  def render_image_from_position(self, position, orientation, image_size=config.camera_image_size, focal_len=config.focal_lengths, noise=True):
+  def render_image_from_position(self, position, orientation, image_size=config.camera_image_size, focal_len=config.focal_lengths[0], noise=True):
 
     # OpenGL camera settings.
     lookdir = np.float32([0, 0, 1]).reshape(3, 1)

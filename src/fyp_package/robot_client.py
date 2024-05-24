@@ -1,5 +1,4 @@
 import socket
-import json
 from fyp_package import config, utils
 import math
 
@@ -11,15 +10,14 @@ class RobotClient:
         self.client_socket.connect((self.host, self.port))
 
     def _send_command(self, command):
-        self.client_socket.sendall(json.dumps(command).encode('utf-8'))
-        response = self.client_socket.recv(1024)
-        return json.loads(response.decode('utf-8'))
+        utils.send_data(self.client_socket, command)
+        return utils.recv_data(self.client_socket)
 
-    def move_robot(self, position, orientation_q, relative=False):
+    def move_robot(self, position, orientation_q=None, relative=False):
         command = {
             'command': 'move_robot',
             'position': list(position),
-            'orientation_q': list(orientation_q),
+            'orientation_q': list(orientation_q) if orientation_q is not None else orientation_q,
             'relative': relative
         }
         return self._send_command(command)
@@ -64,6 +62,9 @@ if __name__ == "__main__":
     # print(rc.move_robot(config.robot_ready_position, config.robot_vertical_orientation_q, relative=False))
     # print(rc.move_robot([0, 0, 0.02], [0, 0, 0, 1], relative=True))
     # print(rc.move_fingers([4.5, 0], relative=False))
-    print(rc.open_gripper())
+    pos = rc.get_robot_pose()[0]
+
+    # vertical down
+    print(rc.move_robot(pos, [1, 0, 0, 0], relative=False))
 
     rc.close()

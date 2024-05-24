@@ -1,7 +1,6 @@
 import sys
 import socket
 import signal
-import json
 from threading import Thread
 
 import roslib; roslib.load_manifest('kinova_demo')
@@ -10,7 +9,7 @@ import kinova_demo.pose_action_client as pose_client # type: ignore
 import kinova_demo.fingers_action_client as finger_client # type: ignore
 import numpy as np
 
-from fyp_package import config
+from fyp_package import config, utils
 
 poseUnitParserUnit = ['mq', 'mdeg', 'mrad'][0]
 fingerUnitParserUnit = ['mm', 'turn', 'percent'][0]
@@ -33,10 +32,9 @@ class Robot:
 
     def handle_client(self, client_socket):
         while True:
-            data = client_socket.recv(1024)
+            data = utils.recv_data(client_socket)
             if not data:
                 break
-            data = json.loads(data.decode('utf-8'))
             if data['command'] == 'move_robot':
                 response = self.move_robot(data['position'], data['orientation_q'], data['relative'])
             elif data['command'] == 'move_fingers':
@@ -47,16 +45,23 @@ class Robot:
                 response = self.open_gripper()
             else:
                 response = {'error': 'Invalid command'}
-            client_socket.sendall(json.dumps(response).encode('utf-8'))
+            utils.send_data(client_socket, response)
         client_socket.close()
 
-
-    def move_robot(self, position=config.robot_ready_position, orientation_q=config.robot_vertical_orientation_q, relative=False):
+    # Move robot to a specific position and orientation
+    # When relative is False, the default orientation is vertical
+    # When relative is True, by default the orientation is not changed
+    def move_robot(self, position=config.robot_ready_position, orientation_q=None, relative=False):
+        if orientation_q is None:
+            if relative:
+                orientation_q = [0, 0, 0, 1]
+            else:
+                orientation_q = config.robot_vertical_orientation_q
         
         # Sets global vars for current position and orientation of the robot
         pose_client.getcurrentCartesianCommand(pose_client.prefix)
         
-        pose_mq, pose_mdeg, pose_mrad = pose_client.unitParser(poseUnitParserUnit, (list(position) + list(orientation_q)), relative)
+        pose_mq, _, _ = pose_client.unitParser(poseUnitParserUnit, (list(position) + list(orientation_q)), relative)
         if relative:
             print('New cartesion pose: ', pose_mq)
 

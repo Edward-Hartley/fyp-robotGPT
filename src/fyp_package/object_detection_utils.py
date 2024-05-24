@@ -85,7 +85,7 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
         contour = get_max_contour(mask, image_width, image_height)
 
         # overlay contour on image, image is a PIL image
-        overlayed = cv.drawContours(cv.cvtColor(np.array(image), cv.COLOR_RGB2BGR), [contour], 0, (0,255,0), 3)
+        # overlayed = cv.drawContours(cv.cvtColor(np.array(image), cv.COLOR_RGB2BGR), [contour], 0, (0,255,0), 3)
         # cv.imshow("overlayed", overlayed)
         # cv.waitKey(0)
 
@@ -107,7 +107,7 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
             rect = MultiPoint([world_point[:2] for world_point in contour_world_points]).minimum_rotated_rectangle
 
             if isinstance(rect, Polygon):
-                bounding_cube = {}
+                bounding_cube = {'top': {}, 'bottom': {}}
 
                 rect = polygon.orient(rect, sign=-1)
                 box = rect.exterior.coords
@@ -118,19 +118,18 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
                 box_btm = [list(point) + [min_z_coordinate] for point in box]
                 box_top_mean = list(np.mean(box_top, axis=0))
                 box_btm_mean = list(np.mean(box_btm, axis=0))
-                bounding_cubes.append(box_top + box_btm)
 
-                bounding_cube['top']['corners'] = box_top
-                bounding_cube['bottom']['corners'] = box_btm
-                bounding_cube['top']['center'] = box_top_mean
-                bounding_cube['bottom']['center'] = box_btm_mean
+                bounding_cube['top']['corners'] = np.array(box_top)
+                bounding_cube['bottom']['corners'] = np.array(box_btm)
+                bounding_cube['top']['center'] = np.array(box_top_mean)
+                bounding_cube['bottom']['center'] = np.array(box_btm_mean)
+
+                bounding_cubes.append(bounding_cube)
 
                 # Calculating rotation in world frame
                 bounding_cubes_orientation_width = np.arctan2(box[1][1] - box[0][1], box[1][0] - box[0][0])
                 bounding_cubes_orientation_length = np.arctan2(box[2][1] - box[1][1], box[2][0] - box[1][0])
                 bounding_cubes_orientations.append([bounding_cubes_orientation_width, bounding_cubes_orientation_length])
-
-    bounding_cubes = np.array(bounding_cubes)
 
     return bounding_cubes, bounding_cubes_orientations
 

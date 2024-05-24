@@ -1,12 +1,10 @@
 # %%
 import os
-# from dotenv import load_dotenv
 import numpy as np
 import copy
 from openai import OpenAI
 # import cv2
 # from google.colab.patches import cv2_imshow
-from moviepy.editor import ImageSequenceClip
 from PIL import Image
 
 # imports for LMPs
@@ -21,14 +19,10 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
-# imports for Franka Panda environment
-import fyp_package.experiments.pick_and_place_env as franka_env
-
-from lang_sam import LangSAM
-from fyp_package import config, object_detection_utils
+from fyp_package import config, object_detection_utils, utils, model_client, environment
 from fyp_package.experiments.no_ground_truth_prompts import *
 
-client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+client = OpenAI(api_key=utils.get_api_key())
 
 # %%
 class LMP:
@@ -81,12 +75,19 @@ class LMP:
                 #     max_tokens=self._cfg['max_tokens']
                 # ).choices[0].text.strip()
                 code_str = '''
-objects = ['blue block', 'red block', 'green block', 'blue bowl', 'red bowl', 'green bowl']
-# Put the red block in the corresponding bowl.
-matches = {'red block': 'red bowl'}
-say('Got it - putting the red block in the red bowl')
+objects = ['espresso cup', 'bowl']
+# Put the espresso cup in the bowl.
+matches = {'espresso cup': 'bowl'}
+say('Got it - putting the espresso cup in the bowl')
 for first, second in matches.items():
   put_first_on_second(get_obj_pos(first), get_obj_pos(second))'''
+#                 code_str = '''
+# objects = ['blue block', 'red block', 'green block', 'blue bowl', 'red bowl', 'green bowl']
+# # Put the red block in the corresponding bowl.
+# matches = {'red block': 'red bowl'}
+# say('Got it - putting the red block in the red bowl')
+# for first, second in matches.items():
+#   put_first_on_second(get_obj_pos(first), get_obj_pos(second))'''
                 break
             except (RateLimitError, APIConnectionError) as e:
                 print(f'OpenAI API got err {e}')
@@ -287,19 +288,19 @@ def exec_safe(code_str, gvars=None, lvars=None):
 # %%
 class LMP_wrapper():
 
-  def __init__(self, env, cfg, render=False):
+  def __init__(self, env: environment.Environment, cfg, render=False):
     self.env = env
     self._cfg = cfg
     self.object_names = list(self._cfg['env']['init_objs'])
 
-    self._min_xy = np.array(self._cfg['env']['coords']['bottom_left'])
-    self._max_xy = np.array(self._cfg['env']['coords']['top_right'])
+    self._min_xy = np.array(self._cfg['env']['coords']['bottom left corner'][0:2])
+    self._max_xy = np.array(self._cfg['env']['coords']['top right corner'][0:2])
     self._range_xy = self._max_xy - self._min_xy
 
     self._table_z = self._cfg['env']['coords']['table_z']
     self.render = render
 
-    self.langsam_model = LangSAM(sam_type="vit_b")
+    self.langsam_model = model_client.ModelClient()
 
   def is_obj_visible(self, obj_name):
     return obj_name in self.object_names
@@ -324,23 +325,22 @@ class LMP_wrapper():
     return side_positions
 
   def get_obj_pos(self, obj_name):
-    rgb, depth_array, camera_position, camera_orientation_q = self.env.render_image()
-    rgb = Image.fromarray(rgb)
+    rgb, depth_array = self.env.get_images()
 
     # return the xy position of the object in robot base frame
-    model_results = self.detect_object(obj_name, rgb, depth_array, camera_position, camera_orientation_q)
+    model_results = self.detect_object(obj_name, rgb, depth_array, config.camera_position, config.camera_orientation_q)
     if len(model_results) > 0:
-      return np.float32(model_results[0]['position'][:2])
+      best_index = np.argmax(list(map(lambda cube: cube['dimensions']['width'], model_results)))
+      return np.float32(model_results[best_index]['position'][:2])
     else:
       return None
   
   def get_bbox(self, obj_name):
     # return the axis-aligned object bounding box in robot base frame (not in pixels)
     # the format is (min_x, min_y, max_x, max_y)
-    rgb, depth_array, camera_position, camera_orientation_q = self.env.render_image()
-    rgb = Image.fromarray(rgb)
+    rgb, depth_array = self.env.get_images()
 
-    model_results = self.detect_object(obj_name, rgb, depth_array, camera_position, camera_orientation_q)
+    model_results = self.detect_object(obj_name, rgb, depth_array, config.camera_position, config.camera_orientation_q)
     if len(model_results) > 0:
       return (
           np.float32(model_results[0]['position'][:2])
@@ -351,24 +351,18 @@ class LMP_wrapper():
   def put_first_on_second(self, pick_pos, place_pos):
     # put the source on top of target
     # place and place are x-y positions in robot base frame
-    self.env.step(action={'pick': pick_pos, 'place': place_pos})
+    self.env.put_first_on_second(pick_pos, place_pos)
 
   def get_robot_pos(self):
-    # return robot end-effector xy position in robot base frame
-    return self.env.get_ee_pos()
+    # return robot end-effector xyz position in robot base frame
+    return self.env.get_ee_pose()[0]
 
-  def goto_pos(self, position_xy):
-    # move the robot end-effector to the desired xy position while maintaining same z
-    ee_xyz = self.env.get_ee_pos()
-    position_xyz = np.concatenate([position_xy, ee_xyz[-1]])
-    while np.linalg.norm(position_xyz - ee_xyz) > 0.01:
-      self.env.movep(position_xyz)
-      self.env.step_sim_and_render()
-      ee_xyz = self.env.get_ee_pos()
+  def move_robot(self, position_xyz):
+    return self.env.move_robot(position_xyz, relative=False)
 
   def follow_traj(self, traj):
     for pos in traj:
-      self.goto_pos(pos)
+      self.move_robot(pos)
 
   def get_corner_positions(self):
     normalized_corners = np.array([
@@ -400,9 +394,7 @@ class LMP_wrapper():
   
   def detect_object(self, prompt, image, depth_array, camera_position, camera_orientation_q):
 
-    model_predictions, _, segmentation_texts = object_detection_utils.langsam_predict(self.langsam_model, image, prompt)
-
-    masks = object_detection_utils.get_segmentation_mask(model_predictions, config.segmentation_threshold)
+    masks, _, segmentation_texts = self.langsam_model.langsam_predict(image, prompt)
 
     return object_detection_utils.get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_array, camera_position, camera_orientation_q, config.intrinsics)
 
@@ -498,29 +490,17 @@ cfg_tabletop = {
   }
 }
 
-lmp_tabletop_coords = {
-        'top_left':     (-0.3 + 0.05, -0.2 - 0.05),
-        'top_side':     (0,           -0.2 - 0.05),
-        'top_right':    (0.3 - 0.05,  -0.2 - 0.05),
-        'left_side':    (-0.3 + 0.05, -0.5,      ),
-        'middle':       (0,           -0.5,      ),
-        'right_side':   (0.3 - 0.05,  -0.5,      ),
-        'bottom_left':  (-0.3 + 0.05, -0.8 + 0.05),
-        'bottom_side':  (0,           -0.8 + 0.05),
-        'bottom_right': (0.3 - 0.05,  -0.8 + 0.05),
-        'table_z':       0.0,
-      }
-
 # %% [markdown]
 # ### LMP Utils
 
 # %%
-def setup_LMP(env, cfg_tabletop):
+def setup_LMP(env: environment.Environment, cfg_tabletop):
   # LMP env wrapper
   cfg_tabletop = copy.deepcopy(cfg_tabletop)
   cfg_tabletop['env'] = dict()
-  cfg_tabletop['env']['init_objs'] = list(env.obj_name_to_id.keys())
-  cfg_tabletop['env']['coords'] = lmp_tabletop_coords
+  cfg_tabletop['env']['init_objs'] = list(env.obj_list)
+  cfg_tabletop['env']['coords'] = config.sim_corner_pos if config.simulation else config.real_corner_pos
+  cfg_tabletop['env']['coords']['table_z'] = config.sim_table_z if config.simulation else config.real_table_z
   LMP_env = LMP_wrapper(env, cfg_tabletop)
   # creating APIs that the LMPs can interact with
   fixed_vars = {
@@ -556,76 +536,32 @@ def setup_LMP(env, cfg_tabletop):
 
   return lmp_tabletop_ui
 
-# %% [markdown]
-# # Interactive Tabletop Manipulation
-# 
-# Instructions:
-# 
-# 1. Set the number of blocks and bowls with the sliders in the next cell.
-# 2. Input a command in the `user_input` field below and run the cell. This will run Code as Policies by querying the code-generating LLM to write robot code to complete the task.
-# 
-# Note the object names printed after the Initilize Env cell - these are the objects in the scene and can be referred to in the commands.
-# 
-# Supported commands:
-# * Spatial reasoning (e.g. to the left of the red block, the closest corner, the farthest bowl, the second block from the right)
-# * Sequential actions (e.g. put blocks in matching bowls, stack blocks on the bottom right corner)
-# * Contextual commands (e.g. do the same with the blue block, undo that)
-# * Language-based reasoning (e.g. put the forest-colored block on the ocean-colored bowl).
-# * Simple Q&A (e.g. how many blocks are to the left of the blue bowl?)
-# 
-# Example commands (note object names may need to be changed depending the sampled object names):
-# * put the sun-colored block on the bowl closest to it
-# * stack the blocks on the bottom most bowl
-# * arrange the blocks as a square in the middle
-# * move the square 5cm to the right
-# * how many blocks are to the right of the orange bowl?
-# * pick up the block closest to the top left corner and place it on the bottom right corner
-# 
-# Known limitations:
-# * In simulation we're using ground truth object poses instead of using vision models. This means that commands the require knowledge of visual apperances (e.g. darkest bowl, largest object) are not supported.
-# * Currently, the low-level pick place primitive does not do collision checking, so if there are many objects on the table, placing actions may incur collisions.
-# * Prompt saturation - if too many commands (10+) are executed in a row, then the LLM may start to ignore examples in the early parts of the prompt.
-# * Ambiguous instructions - if a given instruction doesn't lead to the desired actions, try rephrasing it to remove ambiguities (e.g. place the block on the closest bowl -> place the block on its closest bowl)
-
-# %%
-#@title Initialize Env { vertical-output: true }
-num_blocks = 3 #@param {type:"slider", min:0, max:4, step:1}
-num_bowls = 3 #@param {type:"slider", min:0, max:4, step:1}
-high_resolution = False #@param {type:"boolean"}
-high_frame_rate = False #@param {type:"boolean"}
 
 # setup env and LMP
-env = franka_env.PickPlaceEnv(render=True, high_res=high_resolution, high_frame_rate=high_frame_rate)
-block_list = franka_env.ALL_BLOCKS[:num_blocks]
-bowl_list = franka_env.ALL_BOWLS[:num_bowls]
-obj_list = block_list + bowl_list
-_ = env.reset(obj_list)
+if config.simulation:
+  num_blocks = 3
+  num_bowls = 3
+
+  env = environment.SimulatedEnvironment(num_blocks, num_bowls)
+else:
+  env = environment.PhysicalEnvironment()
 lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
 
-# display env
-# cv2.imshow("environment", cv2.cvtColor(env.get_camera_image(), cv2.COLOR_BGR2RGB))
-# cv2.waitKey(1)
-
 print('available objects:')
-print(obj_list)
-# cv2.waitKey(0)
+print(env.obj_list)
 
-# %%
-# cv2.destroyAllWindows()
+user_input = 'Put the red block in the corresponding bowl'
 
-# %%
-#@title Interactive Demo { vertical-output: true }
-
-user_input = 'Put the red block in the corresponding bowl' #@param {allow-input: true, type:"string"}
-
-env.cache_video = []
+# env.cache_video = []
 
 print('Running policy and recording video...')
-lmp_tabletop_ui(user_input, f'objects = {env.object_list}')
+lmp_tabletop_ui(user_input, f'objects = {env.obj_list}')
 
 
 
-# render video
-if env.cache_video:
-  rendered_clip = ImageSequenceClip(env.cache_video, fps=35 if high_frame_rate else 25)
-  rendered_clip.write_gif("robot_clip.gif")
+# # render video
+# if env.cache_video:
+#   from moviepy.editor import ImageSequenceClip
+
+#   rendered_clip = ImageSequenceClip(env.cache_video, fps=35 if high_frame_rate else 25)
+#   rendered_clip.write_gif("robot_clip.gif")

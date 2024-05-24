@@ -41,7 +41,6 @@ else:
         fov = latest_camera_specs["fov"]
         focal_lengths = [intrinsics[0, 0], intrinsics[1, 1]]
 
-# fov and intrinsics are defined by physical camera
 
 #### Object detection
 
@@ -50,10 +49,58 @@ bounding_cube_mask_image_path = "./assets/bounding_cube_mask_{object}_{mask}.png
 depth_offset = 0.03
 invalid_depth_value = 0
 
+#### Boundaries and known positions
+
+## Simulation
+sim_bounds = np.float32([[-0.3, 0.3], [-0.8, -0.2], [0, 0.15]])  # X Y Z
+sim_left_bound = sim_bounds[0, 0]
+sim_right_bound = sim_bounds[0, 1]
+sim_top_bound = sim_bounds[1, 1]
+sim_bottom_bound = sim_bounds[1, 0]
+sim_middle_x = (sim_left_bound + sim_right_bound) / 2
+sim_middle_y = (sim_top_bound + sim_bottom_bound) / 2
+sim_corner_pos = {
+  'top left corner':     (sim_left_bound + 0.05,   sim_top_bound - 0.05,    0),
+  'top side':            (sim_middle_x,            sim_top_bound - 0.05,    0),
+  'top right corner':    (sim_right_bound - 0.05,  sim_top_bound - 0.05,    0),
+  'left side':           (sim_left_bound + 0.05,   sim_middle_y,            0),
+  'middle':              (sim_middle_x,            sim_middle_y,            0),
+  'right side':          (sim_right_bound - 0.05,  sim_middle_y,            0),
+  'bottom left corner':  (sim_left_bound + 0.05,   sim_bottom_bound + 0.05, 0),
+  'bottom side':         (sim_middle_x,            sim_bottom_bound + 0.05, 0),
+  'bottom right corner': (sim_right_bound - 0.05,  sim_bottom_bound + 0.05, 0),
+}
+sim_table_z = sim_bounds[2, 0]
+
+## Real world
+# bounds are restrictive as they are a square which can be totally reached
+# see the sides as well as corners for an octagon which can be reached
+real_bounds = np.float32([[-0.228, 0.228], [-0.366, -0.261], [0.02, 0.15]])  # X Y Z
+real_left_bound = real_bounds[0, 0]
+real_right_bound = real_bounds[0, 1]
+real_top_bound = real_bounds[1, 1]
+real_bottom_bound = real_bounds[1, 0]
+real_middle_x = (real_left_bound + real_right_bound) / 2
+real_middle_y = (real_top_bound + real_bottom_bound) / 2
+real_corner_pos = {
+  'top left corner':     (real_left_bound,   real_top_bound,    0),
+  'top side':            (real_middle_x,     real_top_bound,    0),
+  'top right corner':    (real_right_bound,  real_top_bound,    0),
+  'left side':           (real_left_bound,   real_middle_y,     0),
+  'middle':              (real_middle_x,     real_middle_y,     0),
+  'right side':          (real_right_bound,  real_middle_y,     0),
+  'bottom left corner':  (real_left_bound,   real_bottom_bound, 0),
+  'bottom side':         (real_middle_x,     real_bottom_bound, 0),
+  'bottom right corner': (real_right_bound,  real_bottom_bound, 0),
+}
+real_table_z = real_bounds[2, 0]
+
+real_object_list = ["espresso cup", "bowl"]
+
 #### Real robot
 
 robot_type = "m1n6s200"
-robot_ready_position = [0, -0.35, 0.15]
+robot_ready_position = [0, -0.25, 0.25]
 robot_vertical_orientation_e = [np.pi, 0, 0]
 robot_vertical_orientation_q = euler2quat(*robot_vertical_orientation_e)
 robot_tucked_position = [0, -0.2, 0.35]

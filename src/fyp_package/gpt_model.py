@@ -50,26 +50,34 @@ class OneRobotAssistant:
         )
         self.thread = None
 
-    def create_thread(self, messages=None, extra_files=None):
+    def create_thread(self, messages=None, starting_files=[]):
+        tool_resources = {
+            "code_interpreter": {"file_ids": starting_files},
+            "file_search": {"vector_store_ids": []},
+        }
         if messages is None:
-            thread = self.client.beta.threads.create()
+            self.thread = self.client.beta.threads.create(tool_resources=tool_resources)
+        else:
+            self.thread = self.client.beta.threads.create(messages=messages, tool_resources=tool_resources)
 
     def add_file_to_thread_code_interpreter(self, file_id):
-        existing_tool_resources = self.get_code_interpreter_files()
+        if self.thread is None:
+            raise ValueError("Thread not created yet")
+        existing_file_ids = self.get_thread_code_interpreter_files()
 
-        self.client.beta.assistants.update(
-            self.assistant.id,
+        self.client.beta.threads.update(
+            self.thread.id,
             tool_resources={
-                "code_interpreter": {"file_ids": existing_tool_resources.append(file_id)},
+                "code_interpreter": {"file_ids": existing_file_ids.append(file_id)},
                 "file_search": {"vector_store_ids": []},
             }
         )
 
     def get_thread_code_interpreter_files(self):
-        if self.assistant.tool_resources is None:
+        if self.thread.tool_resources is None:
             return []
         else:
-            return [self.assistant.tool_resources.code_interpreter]
+            return [self.assistant.tool_resources.code_interpreter.file_ids]
         
     def upload_file(self, file_path):
         with open(file_path, "rb") as file:
