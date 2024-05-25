@@ -334,19 +334,6 @@ class LMP_wrapper():
       return np.float32(model_results[best_index]['position'][:2])
     else:
       return None
-  
-  def get_bbox(self, obj_name):
-    # return the axis-aligned object bounding box in robot base frame (not in pixels)
-    # the format is (min_x, min_y, max_x, max_y)
-    rgb, depth_array = self.env.get_images()
-
-    model_results = self.detect_object(obj_name, rgb, depth_array, config.camera_position, config.camera_orientation_q)
-    if len(model_results) > 0:
-      return (
-          np.float32(model_results[0]['position'][:2])
-      )
-    else:
-      return None
 
   def put_first_on_second(self, pick_pos, place_pos):
     # put the source on top of target
@@ -513,7 +500,7 @@ def setup_LMP(env: environment.Environment, cfg_tabletop):
   variable_vars = {
       k: getattr(LMP_env, k)
       for k in [
-          'get_bbox', 'get_obj_pos', 'is_obj_visible', 'denormalize_xy',
+          'get_obj_pos', 'is_obj_visible', 'denormalize_xy',
           'put_first_on_second', 'get_obj_names',
           'get_corner_name', 'get_side_name',
       ]
