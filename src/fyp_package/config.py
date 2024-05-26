@@ -2,7 +2,7 @@ import numpy as np
 from fyp_package.utils import euler2quat, rot2quat
 import os
 
-simulation = False
+simulation = True
 
 #### Camera
 
@@ -111,6 +111,9 @@ latest_rgb_image_path = "./data/latest_rgb_image.png"
 latest_depth_image_path = "./data/latest_depth_image.npy"
 latest_segmentation_masks_path = "./data/latest_segmentation_masks.npy"
 latest_grasp_detection_path = "./data/latest_grasp_detection.npz"
+latest_generation_logs_path = "./data/latest_generation_logs.txt"
+
+image_to_display_in_message_path = "./data/image_to_display_in_message.png"
 
 #### Grasp detection
 
@@ -129,3 +132,4 @@ robot_server_port = 9999
 default_openai_model = "gpt-4o"
 cheap_openai_model = "gpt-3.5-turbo"
 model_temperature = 0.0
+completions_compatible_openai_model = "gpt-3.5-turbo-instruct"

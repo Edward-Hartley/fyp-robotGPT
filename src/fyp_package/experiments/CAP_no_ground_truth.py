@@ -20,7 +20,7 @@ from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
 from fyp_package import config, object_detection_utils, utils, model_client, environment
-from fyp_package.experiments.no_ground_truth_prompts import *
+from fyp_package.experiments.CAP_no_ground_truth_prompts import *
 
 client = OpenAI(api_key=utils.get_api_key())
 
@@ -330,7 +330,7 @@ class LMP_wrapper():
     # return the xy position of the object in robot base frame
     model_results = self.detect_object(obj_name, rgb, depth_array, config.camera_position, config.camera_orientation_q)
     if len(model_results) > 0:
-      best_index = np.argmax(list(map(lambda cube: cube['dimensions']['width'], model_results)))
+      best_index = np.argmax(list(map(lambda cube: cube['width'], model_results)))
       return np.float32(model_results[best_index]['position'][:2])
     else:
       return None
@@ -394,9 +394,9 @@ cfg_tabletop = {
   'lmps': {
     'tabletop_ui': {
       'prompt_text': prompt_tabletop_ui,
-      'model': 'gpt-3.5-turbo-instruct',
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
-      'temperature': 0,
+      'temperature': config.model_temperature,
       'query_prefix': '# ',
       'query_suffix': '.',
       'stop': ['#', 'objects = ['],
@@ -408,9 +408,9 @@ cfg_tabletop = {
     },
     'parse_obj_name': {
       'prompt_text': prompt_parse_obj_name,
-      'model': 'gpt-3.5-turbo-instruct',
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
-      'temperature': 0,
+      'temperature': config.model_temperature,
       'query_prefix': '# ',
       'query_suffix': '.',
       'stop': ['#', 'objects = ['],
@@ -422,9 +422,9 @@ cfg_tabletop = {
     },
     'parse_position': {
       'prompt_text': prompt_parse_position,
-      'model': 'gpt-3.5-turbo-instruct',
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
-      'temperature': 0,
+      'temperature': config.model_temperature,
       'query_prefix': '# ',
       'query_suffix': '.',
       'stop': ['#'],
@@ -436,9 +436,9 @@ cfg_tabletop = {
     },
     'parse_question': {
       'prompt_text': prompt_parse_question,
-      'model': 'gpt-3.5-turbo-instruct',
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
-      'temperature': 0,
+      'temperature': config.model_temperature,
       'query_prefix': '# ',
       'query_suffix': '.',
       'stop': ['#', 'objects = ['],
@@ -450,9 +450,9 @@ cfg_tabletop = {
     },
     'transform_shape_pts': {
       'prompt_text': prompt_transform_shape_pts,
-      'model': 'gpt-3.5-turbo-instruct',
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
-      'temperature': 0,
+      'temperature': config.model_temperature,
       'query_prefix': '# ',
       'query_suffix': '.',
       'stop': ['#'],
@@ -464,9 +464,9 @@ cfg_tabletop = {
     },
     'fgen': {
       'prompt_text': prompt_fgen,
-      'model': 'gpt-3.5-turbo-instruct',
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
-      'temperature': 0,
+      'temperature': config.model_temperature,
       'query_prefix': '# define function: ',
       'query_suffix': '.',
       'stop': ['# define', '# example'],

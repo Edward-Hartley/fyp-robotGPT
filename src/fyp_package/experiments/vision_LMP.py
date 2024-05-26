@@ -3,7 +3,6 @@ import os
 import numpy as np
 from openai import OpenAI
 import cv2
-import torch
 from io import StringIO
 from contextlib import redirect_stdout
 from PIL import Image
@@ -16,30 +15,9 @@ from shapely.affinity import *
 from openai import RateLimitError, APIConnectionError
 
 from fyp_package import config, object_detection_utils, utils, model_client, environment
-from fyp_package.experiments.no_ground_truth_prompts import *
+from fyp_package.experiments.CAP_vision_agent_prompts import *
 
 client = OpenAI(api_key=utils.get_api_key())
-
-# %%
-cfg_vision_lmp = {
-  'lmps': {
-    'vision_assistant': {
-      'top_system_message': [vision_top_system_message],
-      'prompt_examples': [vision_get_camera_image_example],
-      'model': 'gpt-4o',
-      'max_tokens': 512,
-      'temperature': 0,
-      'query_prefix': '# ',
-      'query_suffix': '.',
-      'stop': ['#', 'objects = ['],
-      'maintain_session': True,
-      'debug_mode': False,
-      'include_context': True,
-      'has_return': False,
-      'return_val_name': 'ret_val',
-    },
-  }
-}
 
 class VisionLMP:
 
@@ -50,7 +28,7 @@ class VisionLMP:
         self.prompt_examples = self._cfg['prompt_examples']
         self.top_system_message = self._cfg['top_system_message']
 
-        self._stop_tokens = list(self._cfg['stop'])
+        self._stop_tokens = self._cfg['stop']
 
         self._fixed_vars = fixed_vars
         self._variable_vars = variable_vars
@@ -61,11 +39,15 @@ class VisionLMP:
         self.exec_hist = ''
 
     def build_initial_messages(self, query):
-        if len(self._variable_vars) > 0:
-            variable_vars_str = f"{', '.join(self._variable_vars.keys())}"
-        else:
-            variable_vars_str = ''
-        top_system_message = self.top_system_message.replace('{variable_vars}', variable_vars_str)
+        functions_docs_str=''
+        for function in self._variable_vars.keys():
+            if function in vision_function_docs:
+                functions_docs_str += f"{function}:\n{vision_function_docs[function]}\n\n"
+
+        print(self._fixed_vars.keys())
+
+        top_system_message = self.top_system_message.replace('{functions_docs}', functions_docs_str)
+        top_system_message = top_system_message.replace('{packages}', str(list(self._fixed_vars.keys())[:-18]))
 
         messages = [self.build_message(top_system_message, 'system')]
         for prompt in self.prompt_examples:
@@ -77,8 +59,10 @@ class VisionLMP:
                 else:
                     messages.append(self.build_message(message, 'system'))
 
+
         messages.append(self.build_message(query, 'user'))
-        print('Initial messages:', messages)
+        print('Initial messages:')
+        utils.print_openai_messages(messages)
 
         return messages
     
@@ -107,6 +91,7 @@ class VisionLMP:
                     sleep(10)
 
             print(f'Completion: {completion}')
+            utils.log_completion(self._name, completion, config.latest_generation_logs_path)
             messages.append(self.build_message(completion, 'assistant'))
 
             sections = completion.split('**')
@@ -115,18 +100,20 @@ class VisionLMP:
                 end = True
                 break
 
-            if sections[1] == 'END':
-                end = True
-                break
 
             code_str = sections[2]
 
             ## Function generation for subfunctions, if none are made this does nothing
-            new_fs = self._lmp_fgen.create_new_fs_from_code(code_str)
-            self._variable_vars.update(new_fs)
+            # new_fs = self._lmp_fgen.create_new_fs_from_code(code_str)
+            # self._variable_vars.update(new_fs)
 
             gvars = merge_dicts([self._fixed_vars, self._variable_vars])
             lvars = kwargs
+
+            if sections[1] == 'RET':
+                end = True
+                print("Returned value:", eval(sections[2], gvars, lvars))
+                return eval(sections[2], gvars, lvars)
 
             if not self._cfg['debug_mode']:
                 stdout = exec_safe(code_str, gvars, lvars)
@@ -173,8 +160,33 @@ def exec_safe(code_str, gvars=None, lvars=None):
 
     out = StringIO()
     with redirect_stdout(out):
-        exec(code_str, custom_gvars, lvars)
+        try:
+            exec(code_str, custom_gvars, lvars)
+        except NameError as e:
+            if e.args[0] == "name 'rgb' is not defined":
+                exec("rgb, depth = get_images()", custom_gvars, lvars)
+                exec(code_str, custom_gvars, lvars)
     return out.getvalue()
+
+cfg_vision_lmp = {
+  'lmps': {
+    'vision_assistant': {
+      'top_system_message': vision_top_system_message,
+      'prompt_examples': [vision_get_images_example, vision_detect_object_example],
+      'model': config.default_openai_model,
+      'max_tokens': 512,
+      'temperature': config.model_temperature,
+      'query_prefix': '# ',
+      'query_suffix': '.',
+      'stop': None,
+      'maintain_session': True,
+      'debug_mode': False,
+      'include_context': True,
+      'has_return': False,
+      'return_val_name': 'ret_val',
+    },
+  }
+}
 
 # %%
 def setup_vision_LMP(lmp_fgen, environment_vars):
@@ -184,7 +196,6 @@ def setup_vision_LMP(lmp_fgen, environment_vars):
       'np': np,
       'os': os,
       'cv2': cv2,
-      'torch': torch,
       'PIL.Image': Image,
   }
   fixed_vars.update({

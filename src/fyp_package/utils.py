@@ -178,3 +178,16 @@ def recv_data(client_socket):
             return None
         data.extend(packet)
     return pickle.loads(data)
+
+def print_openai_messages(messages):
+    for message in messages:
+        if message['role'] == 'assistant':
+            print(f"Assistant:\n{message['content']}")
+        elif message['role'] == 'user':
+            print(f"User:\n{message['content']}")
+        else:
+            print(f"System:\n{message['content']}")
+
+def log_completion(name, message, path):
+    with open(path, 'a') as f:
+        f.write(f"{name}:\n{message}\n\n")

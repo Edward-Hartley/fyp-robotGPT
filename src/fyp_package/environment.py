@@ -168,7 +168,7 @@ class SimulatedEnvironment(Environment):
         return self.get_ee_pose()
 
     def put_first_on_second(self, pick_pos, place_pos):
-        self.sim.step(action={'pick': pick_pos, 'place': place_pos})
+        self.sim.step(action={'pick': np.array(pick_pos), 'place': np.array(place_pos)})
         return True
 
     def get_images(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):

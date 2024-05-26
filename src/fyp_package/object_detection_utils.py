@@ -13,6 +13,8 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
 
     for i, cube_coords in enumerate(cubes_coords):
 
+        print("Detection " + str(i + 1))
+
         width = np.around(np.linalg.norm(cube_coords['bottom']['corners'][1] - cube_coords['bottom']['corners'][0]), 3)
         length = np.around(np.linalg.norm(cube_coords['bottom']['corners'][2] - cube_coords['bottom']['corners'][1]), 3)
         height = np.around(np.linalg.norm(cube_coords['top']['corners'][0] - cube_coords['bottom']['corners'][0]), 3)
@@ -24,7 +26,9 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
         print("Width:", width)
         print("Length:", length)
         print("Height:", height)
-        results[i]['dimensions'] = {'width': width, 'length': length, 'height': height}
+        results[i]['width'] = width
+        results[i]['length'] = length
+        results[i]['height'] = height
 
         if width < length:
             print("Orientation along shorter side (width):", np.around(cubes_orients[i][0], 3))
@@ -34,6 +38,8 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
             print("Orientation along shorter side (length):", np.around(cubes_orients[i][1], 3))
             print("Orientation along longer side (width):", np.around(cubes_orients[i][0], 3), "\n")
             results[i]['orientation'] = {'length': np.around(cubes_orients[i][1], 3), 'width': np.around(cubes_orients[i][0], 3)}
+
+    print("Total number of detections made:", len(segmentation_texts))
 
     return results
 
@@ -92,6 +98,9 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
         if contour is not None:
 
             contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(image_height) for c in range(image_width) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] != config.invalid_depth_value]
+            if len(contour_pixel_points) > (image_width * image_height) / 4:
+                # object is very large, reduce number of points
+                contour_pixel_points = contour_pixel_points[::20]
             contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
             # # use matplotlib to plot the height map
