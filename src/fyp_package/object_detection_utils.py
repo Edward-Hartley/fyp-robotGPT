@@ -9,7 +9,7 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
 
     cubes_coords, cubes_orients = get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q, camera_intrinsics)
 
-    results = [{}] * len(segmentation_texts)
+    results = [{} for _ in range(len(segmentation_texts))]
 
     for i, cube_coords in enumerate(cubes_coords):
 
@@ -57,6 +57,11 @@ def get_segmentation_mask(model_predictions, segmentation_threshold):
 
 def get_max_contour(mask, mask_width, mask_height):
 
+    step = 1
+    if np.count_nonzero(mask) > (mask_width * mask_height) / 4:
+        # object is very large, reduce number of points
+        step = 20
+
     # convert mask to binary image
     thresh = np.zeros((mask_width, mask_height), dtype=np.uint8)
     thresh[mask] = 255
@@ -67,7 +72,7 @@ def get_max_contour(mask, mask_width, mask_height):
     contour_index = None
     max_length = 0
     for c, contour in enumerate(contours):
-        contour_points = [(c, r) for r in range(mask_height) for c in range(mask_width) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1]
+        contour_points = [(c, r) for r in range(0, mask_height, step) for c in range(0, mask_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1]
         if len(contour_points) > max_length:
             contour_index = c
             max_length = len(contour_points)
@@ -96,11 +101,12 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
         # cv.waitKey(0)
 
         if contour is not None:
-
-            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(image_height) for c in range(image_width) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] != config.invalid_depth_value]
-            if len(contour_pixel_points) > (image_width * image_height) / 4:
+            step = 1
+            if np.count_nonzero(mask) > (image_width * image_height) / 4:
                 # object is very large, reduce number of points
-                contour_pixel_points = contour_pixel_points[::20]
+                step = 20
+
+            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] != config.invalid_depth_value]
             contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
             # # use matplotlib to plot the height map

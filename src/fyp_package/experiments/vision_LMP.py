@@ -72,6 +72,7 @@ class VisionLMP:
     def __call__(self, query, **kwargs):
         end = False
         messages = self.build_initial_messages(query)
+        lvars = kwargs
 
         while not end:
 
@@ -108,7 +109,6 @@ class VisionLMP:
             # self._variable_vars.update(new_fs)
 
             gvars = merge_dicts([self._fixed_vars, self._variable_vars])
-            lvars = kwargs
 
             if sections[1] == 'RET':
                 end = True

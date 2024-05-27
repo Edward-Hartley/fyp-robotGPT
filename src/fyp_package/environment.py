@@ -79,6 +79,8 @@ class PhysicalEnvironment(Environment):
         return self.robot.move_robot(position, orientation, relative)
 
     def put_first_on_second(self, pick_pos, place_pos):
+        pick_pos = np.array(pick_pos)
+        place_pos = np.array(place_pos)
         # Set fixed primitive z-heights.
         hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])
         if pick_pos.shape[-1] == 2:

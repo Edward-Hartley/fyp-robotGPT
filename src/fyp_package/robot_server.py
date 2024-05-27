@@ -31,6 +31,7 @@ class Robot:
         self.server_socket.listen(5)
 
     def handle_client(self, client_socket):
+        client_socket.settimeout(300)
         while True:
             data = utils.recv_data(client_socket)
             if not data:
