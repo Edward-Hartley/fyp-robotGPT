@@ -3,8 +3,8 @@ import socket
 import signal
 from threading import Thread
 
-import roslib; roslib.load_manifest('kinova_demo')
-import rospy
+import roslib; roslib.load_manifest('kinova_demo') # type: ignore
+import rospy # type: ignore
 import kinova_demo.pose_action_client as pose_client # type: ignore
 import kinova_demo.fingers_action_client as finger_client # type: ignore
 import numpy as np
@@ -136,5 +136,5 @@ def unpack_positions(result):
     
 if __name__ == '__main__':
     robot = Robot()
-    signal.signal(signal.SIGINT, lambda signal, frame: rs.shutdown())
+    signal.signal(signal.SIGINT, lambda signal, frame: robot.shutdown())
     robot.run()
