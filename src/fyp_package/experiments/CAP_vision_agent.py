@@ -447,7 +447,7 @@ class LMP_wrapper():
 
         result = self.model_client.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         if result is None:
-            print("No grasp detected. None returned.")
+            print("No grasp detected. Returned None.")
             return None
         grasp2cam_tf, _score, contact_point_cam = result
 

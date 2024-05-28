@@ -1,6 +1,7 @@
 import numpy as np
 from math import cos, sin, sqrt
 import pickle
+import cv2
 
 # as defined in proto.py but using math for trigonometric functions
 def euler2quat(x, y, z):
@@ -191,3 +192,9 @@ def print_openai_messages(messages):
 def log_completion(name, message, path):
     with open(path, 'a') as f:
         f.write(f"{name}:\n{message}\n\n")
+
+def save_numpy_image(path, image):
+    cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+
+def load_numpy_image(path):
+    return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)

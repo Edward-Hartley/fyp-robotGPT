@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import time
 
-from fyp_package import config, robot_client, realsense_camera, pick_and_place_env
+from fyp_package import config, robot_client, realsense_camera, pick_and_place_env, utils
 
 class Environment(ABC):
     def __init__(self, obj_list):
@@ -174,13 +174,13 @@ class SimulatedEnvironment(Environment):
         return True
 
     def get_images(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):
-        color_image, depth_image, _, _ = self.sim.render_image()
+        color_image_rgb, depth_image, _, _ = self.sim.render_image()
         if save:
             if save_path_rgb:
-                cv2.imwrite(save_path_rgb, color_image)
+                utils.save_numpy_image(save_path_rgb, color_image_rgb)
             if save_path_depth:
                 np.save(save_path_depth, depth_image)
-        return color_image, depth_image
+        return color_image_rgb, depth_image
     
 
 if __name__ == "__main__":
@@ -196,7 +196,13 @@ if __name__ == "__main__":
     # simulated_env.open_gripper()
 
     env = SimulatedEnvironment(3, 3)
+    # block = env.sim.get_obj_pos(f'{colour} block')
+    # bowl = env.sim.get_obj_pos(f'{colour} bowl')
+    rgb, depth = env.get_images(save=True)
+    import matplotlib.pyplot as plt
+    plt.imshow(rgb)
+    plt.show()
+
+
     colour = input("Press Enter to pick and place")
-    block = env.sim.get_obj_pos(f'{colour} block')
-    bowl = env.sim.get_obj_pos(f'{colour} bowl')
-    env.put_first_on_second(block, bowl)
+    # env.put_first_on_second(block, bowl)

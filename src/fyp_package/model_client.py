@@ -103,9 +103,8 @@ if __name__ == "__main__":
         plt.imshow(np.load(config.latest_segmentation_masks_path)[0])
         plt.show()
 
-        from fyp_package import object_detection_utils
-        import cv2
-        object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
+        # from fyp_package import object_detection_utils
+        # object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
 
         best_grasp_cam, best_score, best_contact_pt = client.contact_graspnet_predict(
             config.latest_depth_image_path, config.latest_rgb_image_path, config.chosen_segmentation_mask_path, save=True

@@ -231,4 +231,4 @@ if __name__ == '__main__':
         }
     lmp_vision_assistant = setup_vision_LMP(None, environment_vars)
 
-    lmp_vision_assistant('Return the [x, y, z] coordinates of where to grasp the red cube')
+    lmp_vision_assistant('Return the [x, y, z] coordinates of where to grasp the red bowl')

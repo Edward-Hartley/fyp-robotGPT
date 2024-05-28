@@ -478,7 +478,7 @@ stdout:
 I will now get the camera image and try to save it to a file.
 **CODE**
 rgb, depth = get_images()
-cv2.imwrite('camera_image_2.jpg', cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+cv2.imwrite('camera_image_2.jpg')
 '''.strip(),
 
 '''
@@ -660,9 +660,10 @@ filtered_masks = []
 for (detection, mask) in zip(detections, masks):
     # Paper cups are typically small, with one dimension slightly more than the other two.
     if detection['width'] < 0.15 and detection['length'] < 0.15 and detection['height'] < 0.15 and detection['height'] > 0.04:
+        # The largest dimension should be significantly bigger and the other two should be similar.
+        # This could be any of the dimensions as a paper cup can be on its side or upright.
         dimensions = [detection['width'], detection['length'], detection['height']]
         dimensions.sort(reverse=True)
-        # the largest should be significantly bigger and the other two should be similar
         if dimensions[0] - dimensions[1] >= 0.03 and dimensions[1] - dimensions[2] <= 0.03:
             filtered_detections.append(detection)
             filtered_masks.append(mask)
