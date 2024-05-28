@@ -10,6 +10,7 @@ import cv2
 import tensorflow.compat.v1 as tf
 tf.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
+print(physical_devices)
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -83,6 +84,9 @@ def grasp_inference(
         )  
 
     # Save results
+    print(scores[True])
+    print(len(scores[True]))
+    print(scores[True].any())
 
     best_grasp_idx = np.argmax(scores[True])
     best_score = scores[True][best_grasp_idx]
@@ -92,12 +96,12 @@ def grasp_inference(
 
     # Visualize results          
     # # filter grasps to only show the best grasp
-    # pred_grasps_cam = {True: [best_grasp_cam]}
-    # scores = {True: [best_score]}
-    # contact_pts = {True: [best_contact_pt]}
+    pred_grasps_cam = {True: [best_grasp_cam]}
+    scores = {True: [best_score]}
+    contact_pts = {True: [best_contact_pt]}
 
-    # visualization_utils.show_image(rgb, segmap)
-    # visualization_utils.visualize_grasps(pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors)
+    visualization_utils.show_image(rgb, segmap)
+    visualization_utils.visualize_grasps(pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors)
 
 
     return best_grasp_cam, best_score, best_contact_pt
@@ -109,19 +113,19 @@ if __name__ == '__main__':
     # depth_path = '/home/edward/Imperial/fyp-robotGPT/assets/pybullet_tabletop_2.npy'
     # rgb_path = '/home/edward/Imperial/fyp-robotGPT/assets/pybullet_tabletop_2.png'
 
-    masks_path = config.latest_segmentation_masks_path
+    mask_path = config.chosen_segmentation_mask_path
     depth_path = config.latest_depth_image_path
     rgb_path = config.latest_rgb_image_path
 
     # each must be a numpy array
-    mask = np.load(masks_path)[0]
+    mask = np.load(mask_path)
     depth = np.load(depth_path)
     rgb = cv2.cvtColor(cv2.imread(rgb_path), cv2.COLOR_BGR2RGB)
 
     grasp_inference(depth, rgb, mask)
 
     results = np.load(config.latest_grasp_detection_path)
-    print(results['pred_grasp_cam'], results['score'], results['contact_pts'])
+    print(results['pred_grasp_cam'], results['score'], results['contact_pt'])
 
 
 

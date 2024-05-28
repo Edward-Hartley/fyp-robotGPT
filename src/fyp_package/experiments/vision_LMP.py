@@ -63,7 +63,7 @@ class VisionLMP:
 
         messages.append(build_message(query, 'user'))
         print('Initial messages:')
-        utils.print_openai_messages(messages)
+        utils.print_openai_messages(messages[1:])
 
         return messages
 
@@ -156,8 +156,8 @@ cfg_vision_lmp = {
   'lmps': {
     'vision_assistant': {
       'top_system_message': vision_top_system_message,
-      'prompt_examples': [vision_get_images_example, vision_detect_object_example],
-      'model': config.default_openai_model,
+      'prompt_examples': [vision_detect_object_example, vision_detect_grasp_example],
+      'model': config.cheap_openai_model,
       'max_tokens': 512,
       'temperature': config.model_temperature,
       'query_prefix': '# ',
@@ -219,11 +219,16 @@ def dummy_detect_object(prompt, rgb, depth):
     ]
     return fake_results, fake_masks
 
+def dummy_detect_grasp(mask, depth):
+    print(input())
+    return np.random.rand(3)
+
 if __name__ == '__main__':
     environment_vars = {
         'get_images': dummy_get_images,
-        'detect_object': dummy_detect_object
+        'detect_object': dummy_detect_object,
+        'detect_grasp': dummy_detect_grasp,
         }
     lmp_vision_assistant = setup_vision_LMP(None, environment_vars)
 
-    lmp_vision_assistant('Return the [x, y] coordinates of the red bowl')
+    lmp_vision_assistant('Return the [x, y, z] coordinates of where to grasp the red cube')

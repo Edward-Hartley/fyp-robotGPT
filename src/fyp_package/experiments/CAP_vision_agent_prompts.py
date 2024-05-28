@@ -607,6 +607,113 @@ The remaining detections are reasonable and can be returned, the user wanted a l
 '''.strip(),
 ]
 
+vision_detect_grasp_example = [
+'''
+Please give me the [x, y, z] position of the best grasp for the paper cup.
+'''.strip(),
+
+'''
+Expectations:
+* There is probably only a single paper cup.
+* Paper cups are typically small, with dimensions less than 0.15 meters.
+* The paper cup may on it's side or upright, but either way one of the dimensions should be slightly more than the other two.
+* The grasp position should be on part of the object.
+First I must detect the paper cup.
+I will use 'detect_object' to get potential positions and masks and then review the results.
+**CODE**
+rgb, depth = get_images()
+detections, masks = detect_object('paper cup', rgb, depth)
+'''.strip(),
+
+'''
+stdout:
+Detection 1
+Position of paper cup: [0.191, -0.140, 0.107]
+Dimensions:
+Width: 0.133
+Length: 0.086
+Height: 0.007
+Orientation along shorter side (width): -1.048
+Orientation along longer side (length): -0.501
+
+Detection 2
+Position of paper cup: [-0.063, -0.320, 0.118]
+Dimensions:
+Width: 0.086
+Length: 0.073
+Height: 0.120
+Orientation along shorter side (width): 0.743
+Orientation along longer side (length): -0.892
+
+Total number of detections made: 2
+'''.strip(),
+
+'''
+I have two detections, but the detection model can make mistakes.
+I can check: the absolute values of the dimensions and the relative values of the dimensions.
+Both meet my prior expectations about paper cups, however the first detection has an abnormally small height.
+I will check my interpretation using code.
+I also need to get the corresponding masks for grasp detection.
+**CODE**
+filtered_detections = []
+filtered_masks = []
+for (detection, mask) in zip(detections, masks):
+    # Paper cups are typically small, with one dimension slightly more than the other two.
+    if detection['width'] < 0.15 and detection['length'] < 0.15 and detection['height'] < 0.15 and detection['height'] > 0.04:
+        dimensions = [detection['width'], detection['length'], detection['height']]
+        dimensions.sort(reverse=True)
+        # the largest should be significantly bigger and the other two should be similar
+        if dimensions[0] - dimensions[1] >= 0.03 and dimensions[1] - dimensions[2] <= 0.03:
+            filtered_detections.append(detection)
+            filtered_masks.append(mask)
+for detection in filtered_detections:
+    print(f"Dimensions: {detection['width']}, {detection['length']}, {detection['height']}")
+print("Number of filtered detections:", len(filtered_detections))
+'''.strip(),
+
+'''
+stdout:
+Dimensions: 0.086, 0.073, 0.120
+Number of filtered detections: 1
+'''.strip(),
+  
+'''
+I have filtered out the detections based on the dimensions and the relative values of the dimensions.
+I now have a single detection that meets my expectations.
+I can now proceed with the grasp detection.
+**CODE**
+grasp_position = detect_grasp(filtered_masks[0], depth)
+'''.strip(),
+
+'''
+stdout:
+No grasp detected. None returned
+'''.strip(),
+
+'''
+The grasp detection did not return a grasp position, this could be due to the orientation of the object or the quality of the mask.
+Paper cups are an easy to grasp object, I will try the other mask. I am not sure which was filtered so I will try both.
+**CODE**
+for i, mask in enumerate(filtered_masks):
+    print(f"Trying mask {i}")
+    grasp_position = detect_grasp(mask, depth)
+    if grasp_position is not None:
+        break
+'''.strip(),
+
+'''
+stdout:
+Trying mask 0
+Detected grasp with contact point at [0.121, -0.141, 0.106]
+'''.strip(),
+
+'''
+I have successfully detected a grasp position for the paper cup.
+**RET**
+grasp_position
+'''.strip(),
+]
+
 vision_function_docs = {
     "get_images": '''
     Get an rgb and depth image from the camera.
@@ -651,6 +758,21 @@ vision_function_docs = {
     Example:
         display_image(rgb)
         display_image(mask)
+    ''',
+    "detect_grasp": '''
+    Get a suggested position of the best grasp available for an object from its segmentation mask and depth array.
+    It will neatly print the results of the grasp detection.
+    Make sure that you have a depth array and have selected the best object mask before using this function.
+
+    Args:
+        mask: a numpy array of bools representing the mask of the object, shape (height, width)
+        depth: a numpy array representing the depth image, shape (height, width)
+
+    Returns:
+        grasp_position: a single list of points, [x, y, z] representing the suggested grasp position
+
+    Example:
+        grasp_position = detect_grasp(mask, depth)
     ''',
 }
 
