@@ -185,12 +185,18 @@ class SimulatedEnvironment(Environment):
 
 if __name__ == "__main__":
 
-    # For physical environment
-    physical_env = PhysicalEnvironment()
-    physical_env.move_robot([0, 0, 0])
-    physical_env.open_gripper()
+    # # For physical environment
+    # physical_env = PhysicalEnvironment()
+    # physical_env.move_robot([0, 0, 0])
+    # physical_env.open_gripper()
 
-    # For simulated environment
-    simulated_env = SimulatedEnvironment(3, 3)
-    simulated_env.move_robot([0, 0, 0])
-    simulated_env.open_gripper()
+    # # For simulated environment
+    # simulated_env = SimulatedEnvironment(3, 3)
+    # simulated_env.move_robot([0, 0, 0])
+    # simulated_env.open_gripper()
+
+    env = SimulatedEnvironment(3, 3)
+    colour = input("Press Enter to pick and place")
+    block = env.sim.get_obj_pos(f'{colour} block')
+    bowl = env.sim.get_obj_pos(f'{colour} bowl')
+    env.put_first_on_second(block, bowl)

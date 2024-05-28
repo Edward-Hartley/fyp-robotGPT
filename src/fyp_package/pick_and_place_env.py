@@ -51,13 +51,13 @@ class FrankaPandaGripper:
 
     # Set friction coefficients for gripper fingers.
     for i in self.finger_joints:
-      pybullet.changeDynamics(self.robot, i, lateralFriction=100.0, spinningFriction=10.0, rollingFriction=10.0, frictionAnchor=True)
+      pybullet.changeDynamics(self.robot, i, lateralFriction=10.0, spinningFriction=1.0, rollingFriction=1.0, frictionAnchor=True)
 
   # Control joint positions by enforcing hard contraints on gripper behavior.
   # Make sure both grippers match each other.
   def setFingerMotors(self, targetPosition=0):
     for i in self.finger_joints:
-        pybullet.setJointMotorControl2(self.robot, i, pybullet.POSITION_CONTROL, targetPosition=targetPosition, force=10)
+        pybullet.setJointMotorControl2(self.robot, i, pybullet.POSITION_CONTROL, targetPosition=targetPosition, force=1)
 
   # Close gripper fingers.
   def activate(self):
@@ -281,10 +281,10 @@ class PickPlaceEnv():
     # Set fixed primitive z-heights.
     hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])
     if pick_pos.shape[-1] == 2:
-      pick_xyz = np.append(pick_pos, 0.025)
+      pick_xyz = np.append(pick_pos, 0.02)
     else:
       pick_xyz = pick_pos
-      pick_xyz[2] = 0.025
+      pick_xyz[2] = 0.02
     if place_pos.shape[-1] == 2:
       place_xyz = np.append(place_pos, 0.15)
     else:
@@ -304,7 +304,7 @@ class PickPlaceEnv():
       ee_xyz = self.get_ee_pos()
 
     # Wait for momentum to die down.
-    for _ in range(100):
+    for _ in range(240):
       self.step_sim_and_render()
 
     # Pick up object.

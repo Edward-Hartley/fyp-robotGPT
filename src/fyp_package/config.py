@@ -2,7 +2,7 @@ import numpy as np
 from fyp_package.utils import euler2quat, rot2quat
 import os
 
-simulation = False
+simulation = True
 
 #### Camera
 

@@ -1,1 +1,0 @@
-oneRobotAssistantInstructions = "Control the robot to perform tasks"

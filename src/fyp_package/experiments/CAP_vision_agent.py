@@ -604,7 +604,7 @@ lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
 print('available objects:')
 print(env.obj_list)
 
-user_input = 'Put the espresso cup in the bowl'
+user_input = 'Put the red block in the corresponding bowl'
 
 # env.cache_video = []
 

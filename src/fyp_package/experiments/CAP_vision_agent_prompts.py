@@ -440,7 +440,7 @@ All coordinates and dimensions are in meters. Before using any tools, you should
 When models return unexpected results (multiple detections or zero detections, strange object dimensions), you should try using them with different prompts or using common sense to infer the correct detection (e.g. a banana should not have a width of 10 meters, or 'paper' might also be detected with the prompt 'piece of paper' or 'white paper'). Err on the side of caution.
 Features that you can use to discriminate between objects include the absolute values of the dimensions, the relative values of the dimensions, and the relative positions of the objects.
 
-Your available environment functions and variables are:
+On the tabletop system, these functions are already defined:
 {functions_docs}
 You also have access to the following packages:
 {packages}
@@ -601,7 +601,7 @@ Dimensions: 0.051, 0.143, 0.042
 
 '''
 I have filtered out the detections based on the dimensions and the relative values of the dimensions.
-The remaining detections are reasonable and can be returned.
+The remaining detections are reasonable and can be returned, the user wanted a list of positions where each position is a list of points.
 **RET**
 [detection['position'] for detection in filtered_detections]
 '''.strip(),
@@ -660,3 +660,41 @@ Let's start by detecting the espresso cup.
 rgb, depth = get_images()
 detections, masks = detect_object('espresso cup',rgb, depth)
 '''
+
+# GPT can only return either a tool usage or a completion, so we use our own tools instead for now
+code_tool = {
+    'type': 'function',
+    'function': {
+        'description': 'Execute the given code on the tabletop system, stdout will be returned to you.',
+        'name': 'tabletop_execute',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'code': {
+                    'type': 'string',
+                    'description': 'The code to execute on the tabletop system.'
+                }
+            },
+            'required': ['code']
+        }
+    }
+}
+return_tool = {
+    'type': 'function',
+    'function': {
+        'description': 'Return the given value to the user.',
+        'name': 'tabletop_return',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'value': {
+                    'type': 'string',
+                    'description': 'The value to return to the user.'
+                }
+            },
+            'required': ['value']
+        }
+    }
+}
+
+example_detect_bowl = '''\nDetection 1\nPosition of bowl: [-0.169, -0.315, 0.042]\nDimensions:\nWidth: 0.172\nLength: 0.212\nHeight: 0.07\nOrientation along shorter side (width): 0.436\nOrientation along longer side (length): -1.135 \n\nDetection 2\nPosition of bowl: [0.01, -0.294, 0.042]\nDimensions:\nWidth: 0.099\nLength: 0.06\nHeight: 0.069\nOrientation along shorter side (length): -0.077\nOrientation along longer side (width): 1.494 \n\nDetection 3\nPosition of bowl: [-0.214, -0.171, 0.002]\nDimensions:\nWidth: 0.086\nLength: 0.101\nHeight: 0.027\nOrientation along shorter side (width): 0.07\nOrientation along longer side (length): -1.501 \n\nTotal number of detections made: 3'''
