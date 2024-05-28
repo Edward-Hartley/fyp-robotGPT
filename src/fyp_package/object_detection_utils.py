@@ -106,7 +106,7 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
                 # object is very large, reduce number of points
                 step = 20
 
-            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] != config.invalid_depth_value]
+            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
             contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
             # # use matplotlib to plot the height map

@@ -41,12 +41,13 @@ def load_model():
 
 def predict_worker(depth_path, rgb_path, mask_path, result_queue):
     grasp_estimator, tf_session = load_model()
-    
     depth = np.load(depth_path)
-    rgb = cv2.cvtColor(cv2.imread(rgb_path), cv2.COLOR_BGR2RGB)
-    segmap = np.load(mask_path)[0]
+    rgb = None
+    if rgb_path is not None:
+        rgb = cv2.cvtColor(cv2.imread(rgb_path), cv2.COLOR_BGR2RGB)
+    segmap = np.load(mask_path)
 
-    pc_full, pc_segments, pc_colors = grasp_estimator.extract_point_clouds(
+    pc_full, pc_segments, _pc_colors = grasp_estimator.extract_point_clouds(
         depth, config.intrinsics, segmap=segmap, rgb=rgb
     )
 
@@ -54,10 +55,15 @@ def predict_worker(depth_path, rgb_path, mask_path, result_queue):
         tf_session, pc_full, pc_segments=pc_segments, local_regions=True, filter_grasps=True
     )
 
-    best_grasp_idx = np.argmax(scores[True])
-    best_score = scores[True][best_grasp_idx]
-    best_grasp_cam = pred_grasps_cam[True][best_grasp_idx]
-    best_contact_pt = contact_pts[True][best_grasp_idx]
+    if not scores[True].any():
+        result_queue.put(None)
+    else:
+        best_grasp_idx = np.argmax(scores[True])
+        best_score = scores[True][best_grasp_idx]
+        best_grasp_cam = pred_grasps_cam[True][best_grasp_idx]
+        best_contact_pt = contact_pts[True][best_grasp_idx]
+
+        result_queue.put((best_grasp_cam, best_score, best_contact_pt))
 
     # Free up GPU memory
     tf_session.close()
@@ -66,7 +72,6 @@ def predict_worker(depth_path, rgb_path, mask_path, result_queue):
     del tf_session
     gc.collect()
 
-    result_queue.put((best_grasp_cam, best_score, best_contact_pt))
 
 class GraspnetServer:
     def __init__(self, host='', port=config.model_server_ports['graspnet']):

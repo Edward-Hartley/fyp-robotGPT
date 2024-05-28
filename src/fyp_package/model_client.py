@@ -56,6 +56,12 @@ class ModelClient:
         return masks, boxes, phrases
     
     def contact_graspnet_predict(self, depth_path, rgb_path, mask_path, save=False, save_path=config.latest_grasp_detection_path):
+        '''
+        Returns the details of the best grasp prediction.
+        grasp_cam is the 4x4 transformation matrix of the gripper in camera frame.
+        score is the confidence score of the grasp.
+        contact_pt is the contact point of the grasp, also in the camera frame.        
+        '''
         data = (depth_path, rgb_path, mask_path)
         response = self.send_request('graspnet', data)
         best_grasp_cam, best_score, best_contact_pt = response
@@ -91,13 +97,18 @@ if __name__ == "__main__":
     client = ModelClient()
     # Example usage
     try:
-        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "espresso cup", save=True)
+        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "white bowl", save=True)
         print(masks, boxes, phrases)
-        # plt.imshow(np.load(config.latest_segmentation_masks_path)[0])
-        # plt.show()
+        np.save(config.chosen_segmentation_mask_path, masks[0])
+        plt.imshow(np.load(config.latest_segmentation_masks_path)[0])
+        plt.show()
+
+        from fyp_package import object_detection_utils
+        import cv2
+        object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
 
         best_grasp_cam, best_score, best_contact_pt = client.contact_graspnet_predict(
-            config.latest_depth_image_path, config.latest_rgb_image_path, config.latest_segmentation_masks_path, save=True
+            config.latest_depth_image_path, config.latest_rgb_image_path, config.chosen_segmentation_mask_path, save=True
         )
         results = np.load(config.latest_grasp_detection_path)
         print(results['pred_grasp_cam'], results['score'], results['contact_pt'])

@@ -312,7 +312,7 @@ class LMP_wrapper():
         self._table_z = self._cfg['env']['coords']['table_z']
         self.render = render
 
-        self.langsam_model = model_client.ModelClient()
+        self.model_client = model_client.ModelClient()
 
     def get_obj_names(self):
         return self.object_names[::]
@@ -419,15 +419,15 @@ class LMP_wrapper():
 #         return fake_results, fake_masks
 
 
-        masks, _, segmentation_texts = self.langsam_model.langsam_predict(image, prompt, save=True)
+        masks, _, segmentation_texts = self.model_client.langsam_predict(image, prompt, save=True)
 
         return object_detection_utils.get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_array, camera_position, camera_orientation_q, config.intrinsics), masks
 
     def get_images(self):
-        return self.env.get_images()
+        return self.env.get_images(save=True)
     
     def display_image(self, array_or_image):
-            # Save in image_to_display_in_message_path
+        # Save in image_to_display_in_message_path
         if isinstance(array_or_image, np.ndarray):
             # if mask, it'll be booleans, convert to image
             if array_or_image.dtype == bool:
@@ -438,6 +438,30 @@ class LMP_wrapper():
         else:
             image = array_or_image
         image.save(config.image_to_display_in_message_path)
+
+    def detect_grasp(self, mask, depth):
+        depth_path = config.chosen_depth_image_path
+        mask_path = config.chosen_segmentation_mask_path
+        np.save(depth_path, depth)
+        np.save(mask_path, mask)
+
+        result = self.model_client.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
+        if result is None:
+            print("No grasp detected. None returned.")
+            return None
+        grasp2cam_tf, _score, contact_point_cam = result
+
+        grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
+
+        contact_point = config.cam2base_tf @ np.concatenate([contact_point_cam, [1]])
+        grasp_position = utils.tf_trans(grasp2base_tf)
+        grasp_orientation = utils.tf_rot(grasp2base_tf)
+
+        print("Detected grasp with contact point:", contact_point)
+        # print("Detected grasp with position:", grasp_position)
+        # print("Detected grasp with orientation:", grasp_orientation)
+
+        return contact_point # , grasp_position, grasp_orientation
 
 
 # %% [markdown]

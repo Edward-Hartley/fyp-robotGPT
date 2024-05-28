@@ -134,7 +134,7 @@ tools = [
 
 
 
-example_responses = [
+example_responses = '''[
     {rgb_path: "rgp.jpg", depth_path: "depth.npy"},
     {masks: ["mask_1.npy", "mask_2.npy"]},
     {
@@ -150,4 +150,4 @@ example_responses = [
         rotation_along_height: 2.946,    
     },
 
-]
+]'''

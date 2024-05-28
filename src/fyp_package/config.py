@@ -1,8 +1,8 @@
 import numpy as np
-from fyp_package.utils import euler2quat, rot2quat
+from fyp_package.utils import euler2quat, rot2quat, tf
 import os
 
-simulation = True
+simulation = False
 
 #### Camera
 
@@ -29,6 +29,7 @@ else:
     calibration_results = np.load("./data/calibration_results.npy", allow_pickle=True).item()
     camera_position = calibration_results["t_cam2base"]
     camera_orientation_q = rot2quat(calibration_results["R_cam2base"])
+    cam2base_tf = tf(camera_orientation_q, camera_position)
     zrange = (0., 3.)
 
     latest_camera_specs_path = "./data/latest_camera_specs.npy"
@@ -47,7 +48,7 @@ else:
 segmentation_threshold = 0.5
 bounding_cube_mask_image_path = "./assets/bounding_cube_mask_{object}_{mask}.png"
 depth_offset = 0.03
-invalid_depth_value = 0
+invalid_depth_values = 0.01, 0.0
 
 #### Boundaries and known positions
 
@@ -112,6 +113,9 @@ latest_depth_image_path = "./data/latest_depth_image.npy"
 latest_segmentation_masks_path = "./data/latest_segmentation_masks.npy"
 latest_grasp_detection_path = "./data/latest_grasp_detection.npz"
 latest_generation_logs_path = "./data/latest_generation_logs.txt"
+
+chosen_segmentation_mask_path = "./data/chosen_segmentation_mask.npy"
+chosen_depth_image_path = "./data/chosen_depth_image.npy"
 
 image_to_display_in_message_path = "./data/image_to_display_in_message.png"
 

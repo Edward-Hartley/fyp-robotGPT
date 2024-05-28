@@ -117,6 +117,11 @@ if __name__ == "__main__":
     camera = RealsenseCamera()
     color_image, depth_image = camera.get_frame(save=True)
     print(color_image.shape, depth_image.shape)
+
+    import matplotlib.pyplot as plt
+    plt.imshow(depth_image)
+    plt.show()
+
     print(camera.get_intrinsics())
     print(camera.get_resolution())
     print(camera.get_fov())
