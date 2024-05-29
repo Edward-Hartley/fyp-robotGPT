@@ -2,7 +2,7 @@ import numpy as np
 from fyp_package.utils import euler2quat, rot2quat, tf
 import os
 
-simulation = True
+simulation = False
 
 #### Camera
 
@@ -11,6 +11,7 @@ if simulation:
     camera_position = (0, -0.85, 0.4)
     camera_orientation = (np.pi / 4 + np.pi / 48, np.pi, np.pi)
     camera_orientation_q = euler2quat(*camera_orientation)
+    cam2base_tf = tf(camera_orientation_q, camera_position)
     zrange = (0.01, 10.)
 
     camera_image_size = (480, 480)
@@ -102,6 +103,7 @@ real_object_list = ["espresso cup", "bowl"]
 
 robot_type = "m1n6s200"
 robot_ready_position = [0, -0.25, 0.25]
+# If modifying the orientation, check grasp transform still works
 robot_vertical_orientation_e = [np.pi, 0, 0]
 robot_vertical_orientation_q = euler2quat(*robot_vertical_orientation_e)
 robot_tucked_position = [0, -0.2, 0.35]

@@ -1,5 +1,6 @@
 import numpy as np
 from math import cos, sin, sqrt
+import math
 import pickle
 import cv2
 
@@ -32,6 +33,31 @@ def euler2quat(x, y, z):
 
   mag = sqrt(qx**2 + qy**2 + qz**2 + qw**2)
   return np.array([qx / mag, qy / mag, qz / mag, qw / mag])
+
+def quat2euler(q):
+  """
+  Convert quaternion to euler angles (yaw, pitch, roll).
+
+  Source:
+  Kuipers, Jack B. Quaternions and Rotation Sequences: A Primer with
+  Applications to Orbits, Aerospace, and Virtual Reality. Princeton, N.J:
+  Princeton University Press, 1999. Print.
+  [Page 168, "Quaternion to Euler Angles"]
+  """
+  qx, qy, qz, qw = q
+
+  m11 = (2 * qw**2) + (2 * qx**2) - 1
+  m12 = 2 * (qx * qy + qw * qz)
+  m13 = 2 * qx * qz - 2 * qw * qy
+  m23 = 2 * qy * qz + 2 * qw * qx
+  m33 = (2 * qw**2) + (2 * qz**2) - 1
+
+  psi = math.atan2(m12, m11)
+  theta = math.asin(-m13)
+  phi = math.atan2(m23, m33)
+
+  ypr = np.array([phi, theta, psi])
+  return ypr
 
 def rot2quat(C):
   """

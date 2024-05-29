@@ -104,7 +104,7 @@ class Robot:
         return self.move_fingers([9.5, 9.5], relative=False)
     
     def open_gripper(self):
-        return self.move_fingers([0, 0], relative=False)
+        return self.move_fingers([3, 3], relative=False)
 
     def run(self):
         while True:

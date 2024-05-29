@@ -3,7 +3,7 @@ import pybullet_data
 import threading
 import numpy as np
 import os
-from fyp_package import config
+from fyp_package import config, utils
 
 from time import sleep
 
@@ -137,7 +137,7 @@ class PickPlaceEnv():
     pybullet.setTimeStep(self.dt)
 
     self.home_joints = [-np.pi/2,0.2,0,-1.3,0, 1.6, np.pi/4, 0, 0]  # Joint angles: (J0, J1, J2, J3, J4, J5, J6, finger_left, finger_right).
-    self.home_ee_euler = (np.pi, 0, np.pi)  # (RX, RY, RZ) rotation in Euler angles.
+    self.home_ee_euler = (np.pi, 0, - np.pi / 2)  # (RX, RY, RZ) rotation in Euler angles.
     self.ee_link_id = 8  # Link ID of Panda end effector.
     self.tip_link_id = 11  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
     self.gripper = None
@@ -210,7 +210,7 @@ class PickPlaceEnv():
           object_id = pybullet.createMultiBody(0.01, object_shape, object_visual, basePosition=object_position)
         elif object_type == 'bowl':
           object_position[2] = 0
-          object_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "bowl/bowl.urdf", object_position, useFixedBase=1)
+          object_id = pybullet.loadURDF(PYBULLET_ASSETS_DIR + "bowl/bowl.urdf", object_position) #, useFixedBase=True)
         pybullet.changeVisualShape(object_id, -1, rgbaColor=object_color)
         self.obj_name_to_id[obj_name] = object_id
 
@@ -235,7 +235,9 @@ class PickPlaceEnv():
       targetPositions=joints,
       positionGains=[0.01]*len(self.joint_ids))
 
-  def movep(self, position):
+  def movep(self, position, orientation=None):
+    if orientation is None:
+      orientation = pybullet.getQuaternionFromEuler(self.home_ee_euler)
     # add offset to z to account for the gripper, copying as to not modify the original
     position = position.copy()
     position[2] += self.gripper_height
@@ -244,7 +246,7 @@ class PickPlaceEnv():
         bodyUniqueId=self.robot_id,
         endEffectorLinkIndex=self.tip_link_id,
         targetPosition=position,
-        targetOrientation=pybullet.getQuaternionFromEuler(self.home_ee_euler),
+        targetOrientation=orientation,
         maxNumIterations=100)
     self.servoj(joints[:-2]) # Do not move fingers
 
@@ -260,17 +262,19 @@ class PickPlaceEnv():
     ee_pos, ee_quat = pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
     # take offset from z to account for the gripper
     offset = np.array([0, 0, -self.gripper_height])
-    offset_rotated = pybullet.getMatrixFromQuaternion(ee_quat) @ offset
+    rotation = pybullet.getMatrixFromQuaternion(ee_quat)
+    rotation = np.float32(rotation).reshape(3, 3)
+    offset_rotated = rotation @ offset
     ee_pos = np.array(ee_pos) + offset_rotated
     return ee_pos, ee_quat
   
   def get_wrist_pose(self):
     return pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
   
-  def move_ee(self, position):
+  def move_ee(self, position, orientation = None):
     ee_xyz = self.get_ee_pos()
     while np.linalg.norm(position - ee_xyz) > 0.01:
-      self.movep(position)
+      self.movep(position, orientation)
       self.step_sim_and_render()
       ee_xyz = self.get_ee_pos()
 
@@ -278,13 +282,18 @@ class PickPlaceEnv():
     """Do pick and place motion primitive."""
     pick_pos, place_pos = action['pick'].copy(), action['place'].copy()
 
+    pick_orientation = pybullet.getQuaternionFromEuler(self.home_ee_euler)
+    if 'orientation' in action:
+      if action['orientation'] is not None:
+        rotation_euler = [0, 0, action['orientation']]
+        pick_orientation = utils.rot2quat(utils.quat2rot(pick_orientation) @ utils.quat2rot(utils.euler2quat(*rotation_euler)))
+
     # Set fixed primitive z-heights.
     hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])
     if pick_pos.shape[-1] == 2:
-      pick_xyz = np.append(pick_pos, 0.02)
+      pick_xyz = np.append(pick_pos, 0.01)
     else:
       pick_xyz = pick_pos
-      pick_xyz[2] = 0.02
     if place_pos.shape[-1] == 2:
       place_xyz = np.append(place_pos, 0.15)
     else:
@@ -294,12 +303,12 @@ class PickPlaceEnv():
     # Move to object.
     ee_xyz = self.get_ee_pos()
     while np.linalg.norm(hover_xyz - ee_xyz) > 0.01:
-      self.movep(hover_xyz)
+      self.movep(hover_xyz, pick_orientation)
       self.step_sim_and_render()
       ee_xyz = self.get_ee_pos()
 
     while np.linalg.norm(pick_xyz - ee_xyz) > 0.01:
-      self.movep(pick_xyz)
+      self.movep(pick_xyz, pick_orientation)
       self.step_sim_and_render()
       ee_xyz = self.get_ee_pos()
 
@@ -340,9 +349,10 @@ class PickPlaceEnv():
       self.movep(place_xyz)
       self.step_sim_and_render()
       ee_xyz = self.get_ee_pos()
-    place_xyz = np.float32([0, -0.5, 0.2])
-    while np.linalg.norm(place_xyz - ee_xyz) > 0.01:
-      self.movep(place_xyz)
+
+    home_xyz = np.float32([0, -0.5, 0.2])
+    while np.linalg.norm(home_xyz - ee_xyz) > 0.01:
+      self.movep(home_xyz)
       self.step_sim_and_render()
       ee_xyz = self.get_ee_pos()
 

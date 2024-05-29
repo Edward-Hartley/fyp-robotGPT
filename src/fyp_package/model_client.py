@@ -64,6 +64,8 @@ class ModelClient:
         '''
         data = (depth_path, rgb_path, mask_path)
         response = self.send_request('graspnet', data)
+        if response is None:
+            return None
         best_grasp_cam, best_score, best_contact_pt = response
         if save:
             np.savez(save_path, pred_grasp_cam=best_grasp_cam, score=best_score, contact_pt=best_contact_pt)
@@ -97,7 +99,12 @@ if __name__ == "__main__":
     client = ModelClient()
     # Example usage
     try:
-        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "white bowl", save=True)
+        from fyp_package import environment
+        import pybullet as pb
+        env = environment.PhysicalEnvironment()
+        env.get_images(save=True)
+
+        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "paper cup", save=True)
         print(masks, boxes, phrases)
         np.save(config.chosen_segmentation_mask_path, masks[0])
         plt.imshow(np.load(config.latest_segmentation_masks_path)[0])
@@ -106,11 +113,39 @@ if __name__ == "__main__":
         # from fyp_package import object_detection_utils
         # object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
 
-        best_grasp_cam, best_score, best_contact_pt = client.contact_graspnet_predict(
+        result = client.contact_graspnet_predict(
             config.latest_depth_image_path, config.latest_rgb_image_path, config.chosen_segmentation_mask_path, save=True
         )
-        results = np.load(config.latest_grasp_detection_path)
-        print(results['pred_grasp_cam'], results['score'], results['contact_pt'])
+
+        grasp2cam_tf, _score, contact_point_cam = result
+
+        grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
+        grasp_rot = utils.tf_rot(grasp2base_tf)
+        # rotate grasp_orientation by 90 degrees around z-axis
+        # grasp_orientation = utils.rot2quat(grasp_rot @ utils.quat2rot(utils.euler2quat(*[0, 0, np.pi/2])))
+        grasp_orientation = utils.rot2quat(grasp_rot)
+        grasp_z_rot = -utils.quat2euler(grasp_orientation)[2]
+        # wrap rot to [-pi/2, pi/2]
+        if grasp_z_rot > np.pi/2:
+            grasp_z_rot -= np.pi
+        elif grasp_z_rot < -np.pi/2:
+            grasp_z_rot += np.pi
+
+        contact_point = (config.cam2base_tf @ np.concatenate([contact_point_cam, [1]]))[:3]
+        contact_point[2] -= 0.03
+
+        print(grasp2base_tf, contact_point)
+        print(utils.quat2euler(grasp_orientation))
+
+
+        print(utils.quat2euler(env.get_ee_pose()[1]))
+        
+        env.put_first_on_second(contact_point, config.robot_ready_position, grasp_z_rot)
+
+        input("Press Enter to move")
+        env.move_robot([0, 0, 0.1], relative=True)
+
+
 
     except ConnectionError as e:
         print(e)

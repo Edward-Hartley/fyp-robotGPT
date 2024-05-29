@@ -453,15 +453,25 @@ class LMP_wrapper():
 
         grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
 
-        contact_point = config.cam2base_tf @ np.concatenate([contact_point_cam, [1]])
+        contact_point = config.cam2base_tf @ np.concatenate([contact_point_cam, [1]])[:3]
+        contact_point[2] -= 0.03
+
         grasp_position = utils.tf_trans(grasp2base_tf)
         grasp_orientation = utils.tf_rot(grasp2base_tf)
+        grasp_orientation = utils.rot2quat(grasp_orientation)
+        grasp_z_rot = -utils.quat2euler(grasp_orientation)[2]
+        # wrap rot to [-pi/2, pi/2]
+        if grasp_z_rot > np.pi/2:
+            grasp_z_rot -= np.pi
+        elif grasp_z_rot < -np.pi/2:
+            grasp_z_rot += np.pi
 
         print("Detected grasp with contact point:", contact_point)
+        print("Grasp rotation about z-axis:", grasp_z_rot)
         # print("Detected grasp with position:", grasp_position)
         # print("Detected grasp with orientation:", grasp_orientation)
 
-        return contact_point # , grasp_position, grasp_orientation
+        return contact_point, grasp_z_rot # , grasp_position, grasp_orientation
 
 
 # %% [markdown]

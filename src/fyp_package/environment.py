@@ -78,7 +78,16 @@ class PhysicalEnvironment(Environment):
     def move_robot(self, position=config.robot_ready_position, orientation=None, relative=False):
         return self.robot.move_robot(position, orientation, relative)
 
-    def put_first_on_second(self, pick_pos, place_pos):
+    # pick orientation is a scalar representing the angle of rotation around the z-axis
+    # it should be in the range [-pi/2, pi/2]
+    def put_first_on_second(self, pick_pos, place_pos, pick_orientation=None):
+        if pick_orientation is None:
+            pick_orientation = config.robot_vertical_orientation_q
+        else:
+            rotation_euler = [0, 0, pick_orientation]
+            pick_orientation = utils.rot2quat(utils.quat2rot(config.robot_vertical_orientation_q) @ utils.quat2rot(utils.euler2quat(*rotation_euler)))
+
+
         pick_pos = np.array(pick_pos)
         place_pos = np.array(place_pos)
         # Set fixed primitive z-heights.
@@ -87,7 +96,6 @@ class PhysicalEnvironment(Environment):
             pick_xyz = np.append(pick_pos, 0.025)
         else:
             pick_xyz = pick_pos
-            pick_xyz[2] = 0.025
         if place_pos.shape[-1] == 2:
             place_xyz = np.append(place_pos, 0.15)
         else:
@@ -97,11 +105,11 @@ class PhysicalEnvironment(Environment):
         # Move to object.
         ee_xyz = self.get_ee_pose()[0]
         while np.linalg.norm(hover_xyz - ee_xyz) > 0.03:
-            self.move_robot(hover_xyz)
+            self.move_robot(hover_xyz, pick_orientation)
             ee_xyz = self.get_ee_pose()[0]
 
         while np.linalg.norm(pick_xyz - ee_xyz) > 0.03:
-            self.move_robot(pick_xyz)
+            self.move_robot(pick_xyz, pick_orientation)
             ee_xyz = self.get_ee_pose()[0]
 
         # Pick up object.
@@ -161,16 +169,22 @@ class SimulatedEnvironment(Environment):
 
     def open_gripper(self):
         self.sim.gripper.release()
+        for _ in range(240):
+            self.sim.step_sim_and_render()
 
     def close_gripper(self):
         self.sim.gripper.activate()
+        for _ in range(240):
+            self.sim.step_sim_and_render()
 
-    def move_robot(self, position):
-        self.sim.move_robot(position)
+    def move_robot(self, position, orientation=None, relative=False):
+        if relative:
+            position = np.array(position) + np.array(self.get_ee_pose()[0])
+        self.sim.move_ee(position, orientation)
         return self.get_ee_pose()
 
-    def put_first_on_second(self, pick_pos, place_pos):
-        self.sim.step(action={'pick': np.array(pick_pos), 'place': np.array(place_pos)})
+    def put_first_on_second(self, pick_pos, place_pos, pick_orientation=None):
+        self.sim.step(action={'pick': np.array(pick_pos), 'place': np.array(place_pos), 'pick_orientation': pick_orientation})
         return True
 
     def get_images(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):
@@ -195,14 +209,28 @@ if __name__ == "__main__":
     # simulated_env.move_robot([0, 0, 0])
     # simulated_env.open_gripper()
 
+
+
+
     env = SimulatedEnvironment(3, 3)
-    # block = env.sim.get_obj_pos(f'{colour} block')
-    # bowl = env.sim.get_obj_pos(f'{colour} bowl')
     rgb, depth = env.get_images(save=True)
-    import matplotlib.pyplot as plt
-    plt.imshow(rgb)
-    plt.show()
+    print(env.get_ee_pose())
+
+    current_quat = env.get_ee_pose()[1]
+    while True:
+        euler = eval(input("Enter euler angles: "))
+        print(utils.quat2euler(env.get_ee_pose()[1]))
+        new_quat = utils.rot2quat(utils.quat2rot(current_quat) @ utils.quat2rot(utils.euler2quat(*euler)))
+
+        env.move_robot([0, -0.5, 0.2], new_quat)
+        env.move_robot([0, -0.5, 0.3], new_quat)
+        env.move_robot([0, -0.5, 0.2], new_quat)
+        env.move_robot([0, -0.5, 0.3], new_quat)
+
+        print(utils.quat2euler(new_quat))
 
 
     colour = input("Press Enter to pick and place")
+    # block = env.sim.get_obj_pos(f'{colour} block')
+    # bowl = env.sim.get_obj_pos(f'{colour} bowl')
     # env.put_first_on_second(block, bowl)
