@@ -33,13 +33,14 @@ class Environment(ABC):
         pass
 
     @abstractmethod
-    def put_first_on_second(self, pick_pos, place_pos):
+    def put_first_on_second(self, pick_pos, place_pos, pick_angle=None):
         """
         Perform a pick and place operation.
 
         Args:
             pick_pos (tuple): Target position which can be either 2D or 3D, but the Z will be overridden either way.
             place_pos (tuple): Target position which can be either 2D or 3D, but the Z will be overridden either way.
+            pick_angle (float): Optional angle of rotation around the z-axis in radians. Defaults to None.
 
         Returns:
             bool: True if the operation was successful, False otherwise.
@@ -80,11 +81,11 @@ class PhysicalEnvironment(Environment):
 
     # pick orientation is a scalar representing the angle of rotation around the z-axis
     # it should be in the range [-pi/2, pi/2]
-    def put_first_on_second(self, pick_pos, place_pos, pick_orientation=None):
-        if pick_orientation is None:
+    def put_first_on_second(self, pick_pos, place_pos, pick_angle=None):
+        if pick_angle is None:
             pick_orientation = config.robot_vertical_orientation_q
         else:
-            rotation_euler = [0, 0, pick_orientation]
+            rotation_euler = [0, 0, pick_angle]
             pick_orientation = utils.rot2quat(utils.quat2rot(config.robot_vertical_orientation_q) @ utils.quat2rot(utils.euler2quat(*rotation_euler)))
 
 
@@ -95,7 +96,7 @@ class PhysicalEnvironment(Environment):
         if pick_pos.shape[-1] == 2:
             pick_xyz = np.append(pick_pos, 0.025)
         else:
-            pick_xyz = pick_pos
+            pick_xyz = np.float32([pick_pos[0], pick_pos[1], pick_pos[2]])
         if place_pos.shape[-1] == 2:
             place_xyz = np.append(place_pos, 0.15)
         else:
@@ -183,8 +184,8 @@ class SimulatedEnvironment(Environment):
         self.sim.move_ee(position, orientation)
         return self.get_ee_pose()
 
-    def put_first_on_second(self, pick_pos, place_pos, pick_orientation=None):
-        self.sim.step(action={'pick': np.array(pick_pos), 'place': np.array(place_pos), 'pick_orientation': pick_orientation})
+    def put_first_on_second(self, pick_pos, place_pos, pick_angle=None):
+        self.sim.step(action={'pick': np.array(pick_pos), 'place': np.array(place_pos), 'pick_angle': pick_angle})
         return True
 
     def get_images(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):
@@ -217,20 +218,20 @@ if __name__ == "__main__":
     print(env.get_ee_pose())
 
     current_quat = env.get_ee_pose()[1]
-    while True:
-        euler = eval(input("Enter euler angles: "))
-        print(utils.quat2euler(env.get_ee_pose()[1]))
-        new_quat = utils.rot2quat(utils.quat2rot(current_quat) @ utils.quat2rot(utils.euler2quat(*euler)))
+    # while True:
+    #     euler = eval(input("Enter euler angles: "))
+    #     print(utils.quat2euler(env.get_ee_pose()[1]))
+    #     new_quat = utils.rot2quat(utils.quat2rot(current_quat) @ utils.quat2rot(utils.euler2quat(*euler)))
 
-        env.move_robot([0, -0.5, 0.2], new_quat)
-        env.move_robot([0, -0.5, 0.3], new_quat)
-        env.move_robot([0, -0.5, 0.2], new_quat)
-        env.move_robot([0, -0.5, 0.3], new_quat)
+    #     env.move_robot([0, -0.5, 0.2], new_quat)
+    #     env.move_robot([0, -0.5, 0.3], new_quat)
+    #     env.move_robot([0, -0.5, 0.2], new_quat)
+    #     env.move_robot([0, -0.5, 0.3], new_quat)
 
-        print(utils.quat2euler(new_quat))
+    #     print(utils.quat2euler(new_quat))
 
 
     colour = input("Press Enter to pick and place")
-    # block = env.sim.get_obj_pos(f'{colour} block')
-    # bowl = env.sim.get_obj_pos(f'{colour} bowl')
-    # env.put_first_on_second(block, bowl)
+    block = env.sim.get_obj_pos(f'{colour} block')
+    bowl = env.sim.get_obj_pos(f'{colour} bowl')
+    env.put_first_on_second(block, bowl, np.pi/2)

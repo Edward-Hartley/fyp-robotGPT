@@ -62,8 +62,8 @@ class VisionLMP:
 
 
         messages.append(build_message(query, 'user'))
-        print('Initial messages:')
-        utils.print_openai_messages(messages[1:])
+        print('Initial messages vision assistant')
+        # utils.print_openai_messages(messages[0])
 
         return messages
 
@@ -97,7 +97,7 @@ class VisionLMP:
             if sections[1] == 'RET':
                 end = True
                 print("Returned value:", eval(code_str, gvars, lvars))
-                return eval(sections[2], gvars, lvars)
+                return self.confirm_return(messages, eval(code_str, gvars, lvars), query, lvars)
 
             if not self._cfg['debug_mode']:
                 stdout = exec_safe(code_str, gvars, lvars)
@@ -109,8 +109,40 @@ class VisionLMP:
 
             system_message = f'stdout: \n{stdout}'
             print(system_message)
+            utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
             messages.append(build_message(system_message, 'system'))
+
+    def confirm_return(self, messages, ret_val, query, lvars):
+        confirmation_message = (
+            vision_confirm_return
+            .replace('{ret_val}', str(ret_val))
+            .replace('{user_query}', query)
+        )
+
+        messages.append(build_message(confirmation_message, 'system'))
+        utils.log_completion(self._name, confirmation_message, config.latest_generation_logs_path)
+        completion = self.gpt_model.chat_completion(messages)
+
+        utils.log_completion(self._name, completion, config.latest_generation_logs_path)
+        messages.append(build_message(completion, 'assistant'))
+
+        sections = completion.split('**')
+        if len(sections) <= 1:
+            print('Incorrect format, implement error correction')
+            end = True
+            return
+
+        code_str = sections[2]
+
+        ## Function generation for subfunctions, if none are made this does nothing
+        # new_fs = self._lmp_fgen.create_new_fs_from_code(code_str)
+        # self._variable_vars.update(new_fs)
+
+        gvars = merge_dicts([self._fixed_vars, self._variable_vars])
+
+        if sections[1] == 'RET':
+            return eval(code_str, gvars, lvars)
 
 
 def var_exists(name, all_vars):
@@ -157,7 +189,7 @@ cfg_vision_lmp = {
     'vision_assistant': {
       'top_system_message': vision_top_system_message,
       'prompt_examples': [vision_detect_object_example, vision_detect_grasp_example],
-      'model': config.cheap_openai_model,
+      'model': config.default_openai_model,
       'max_tokens': 512,
       'temperature': config.model_temperature,
       'query_prefix': '# ',

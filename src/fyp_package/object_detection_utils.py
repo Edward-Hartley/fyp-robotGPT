@@ -11,6 +11,8 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
 
     results = [{} for _ in range(len(segmentation_texts))]
 
+    print("cube_coords:", cubes_coords)
+
     for i, cube_coords in enumerate(cubes_coords):
 
         print("Detection " + str(i + 1))
@@ -70,7 +72,8 @@ def get_max_contour(mask, mask_width, mask_height):
     cnt = contours[0]
 
     contour_index = None
-    max_length = 0
+
+    max_length = -1
     for c, contour in enumerate(contours):
         contour_points = [(c, r) for r in range(0, mask_height, step) for c in range(0, mask_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1]
         if len(contour_points) > max_length:
@@ -106,7 +109,9 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
                 # object is very large, reduce number of points
                 step = 20
 
-            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
+
+            # contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
+            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_width-1, step) for c in range(0, image_height-1, step) if mask[r][c] and depth_array[r][c] not in config.invalid_depth_values]
             contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
             # # use matplotlib to plot the height map

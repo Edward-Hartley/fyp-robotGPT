@@ -447,7 +447,7 @@ class LMP_wrapper():
 
         result = self.model_client.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         if result is None:
-            print("No grasp detected. Returned None.")
+            print("No grasp detected. Returned None, None.")
             return None
         grasp2cam_tf, _score, contact_point_cam = result
 
@@ -601,6 +601,7 @@ def setup_LMP(env: environment.Environment, cfg_tabletop):
   vision_variable_vars['detect_object'] = LMP_env.detect_object
   vision_variable_vars['get_images'] = LMP_env.get_images
 #   vision_variable_vars['display_image'] = LMP_env.display_image # not yet implemented
+  vision_variable_vars['detect_grasp'] = LMP_env.detect_grasp
 
   # creating the vision LMP for object detection
   lmp_vision = vision_LMP.setup_vision_LMP(lmp_fgen=None, environment_vars=vision_variable_vars)
@@ -638,7 +639,7 @@ lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
 print('available objects:')
 print(env.obj_list)
 
-user_input = 'Put the red block in the corresponding bowl'
+user_input = 'Put the paper cup in the white bowl'
 
 # env.cache_video = []
 

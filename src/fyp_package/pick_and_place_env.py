@@ -205,8 +205,8 @@ class PickPlaceEnv():
         object_type = obj_name.split(' ')[1]
         object_position = rand_xyz.squeeze()
         if object_type == 'block':
-          object_shape = pybullet.createCollisionShape(pybullet.GEOM_BOX, halfExtents=[0.02, 0.02, 0.02])
-          object_visual = pybullet.createVisualShape(pybullet.GEOM_BOX, halfExtents=[0.02, 0.02, 0.02])
+          object_shape = pybullet.createCollisionShape(pybullet.GEOM_BOX, halfExtents=[0.025, 0.025, 0.025])
+          object_visual = pybullet.createVisualShape(pybullet.GEOM_BOX, halfExtents=[0.025, 0.025, 0.025])
           object_id = pybullet.createMultiBody(0.01, object_shape, object_visual, basePosition=object_position)
         elif object_type == 'bowl':
           object_position[2] = 0
@@ -283,15 +283,15 @@ class PickPlaceEnv():
     pick_pos, place_pos = action['pick'].copy(), action['place'].copy()
 
     pick_orientation = pybullet.getQuaternionFromEuler(self.home_ee_euler)
-    if 'orientation' in action:
-      if action['orientation'] is not None:
-        rotation_euler = [0, 0, action['orientation']]
+    if 'pick_angle' in action:
+      if action['pick_angle'] is not None:
+        rotation_euler = [0, 0, action['pick_angle']]
         pick_orientation = utils.rot2quat(utils.quat2rot(pick_orientation) @ utils.quat2rot(utils.euler2quat(*rotation_euler)))
 
     # Set fixed primitive z-heights.
     hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])
     if pick_pos.shape[-1] == 2:
-      pick_xyz = np.append(pick_pos, 0.01)
+      pick_xyz = np.append(pick_pos, 0.02)
     else:
       pick_xyz = pick_pos
     if place_pos.shape[-1] == 2:

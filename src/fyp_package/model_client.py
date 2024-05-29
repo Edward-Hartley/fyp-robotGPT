@@ -101,17 +101,25 @@ if __name__ == "__main__":
     try:
         from fyp_package import environment
         import pybullet as pb
+        import cv2
         env = environment.PhysicalEnvironment()
         env.get_images(save=True)
 
         masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "paper cup", save=True)
-        print(masks, boxes, phrases)
+        masks = np.load(config.latest_segmentation_masks_path)
+        print(masks)
+        phrases = ["paper cup"] * len(masks)
+
         np.save(config.chosen_segmentation_mask_path, masks[0])
         plt.imshow(np.load(config.latest_segmentation_masks_path)[0])
         plt.show()
 
-        # from fyp_package import object_detection_utils
-        # object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
+
+        from fyp_package import object_detection_utils
+        results= object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
+        above_object = results[0]['position'] + np.array([0, 0, 0.1])
+        # env.move_robot(above_object)
+        input("Press Enter to move")
 
         result = client.contact_graspnet_predict(
             config.latest_depth_image_path, config.latest_rgb_image_path, config.chosen_segmentation_mask_path, save=True
@@ -132,7 +140,7 @@ if __name__ == "__main__":
             grasp_z_rot += np.pi
 
         contact_point = (config.cam2base_tf @ np.concatenate([contact_point_cam, [1]]))[:3]
-        contact_point[2] -= 0.03
+        contact_point[2] += 0.03
 
         print(grasp2base_tf, contact_point)
         print(utils.quat2euler(grasp_orientation))
