@@ -120,6 +120,7 @@ chosen_segmentation_mask_path = "./data/chosen_segmentation_mask.npy"
 chosen_depth_image_path = "./data/chosen_depth_image.npy"
 
 image_to_display_in_message_path = "./data/image_to_display_in_message.png"
+viewed_image_logs_directory = "./data/viewed_image_logs/"
 
 #### Grasp detection
 

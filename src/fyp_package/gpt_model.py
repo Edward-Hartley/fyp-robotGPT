@@ -46,18 +46,21 @@ class GptModel:
         return completion
 
     def chat_completion_request(self, messages, tool_choice="auto"):
-        if self.tools is None:
-            tool_choice = None
+        kwargs = {
+            'messages': messages,
+            'model': self.model,
+            'tools': self.tools,
+            'temperature': self.temperature,
+            'max_tokens': self.max_tokens,
+        }
 
-        message = self.client.chat.completions.create(
-            messages=messages,
-            model=self.model,
-            tools=self.tools,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            stop=self.stop,
-            tool_choice=tool_choice
-        ).choices[0].message
+        if self.tools is not None:
+            kwargs['tool_choice'] = tool_choice
+
+        if self.stop is not None:
+            kwargs['stop'] = self.stop
+
+        message = self.client.chat.completions.create(**kwargs).choices[0].message
 
         return message.content.strip()
     
@@ -120,10 +123,12 @@ def build_image_tool_response(image_path, tool_call_id, detail="low", text=None)
 
 
 if __name__ == '__main__':
-    from fyp_package.experiments.CAP_vision_agent_prompts import *
-    gpt = GptModel(model=config.cheap_openai_model, tools=[code_tool, return_tool])
+    gpt = GptModel(model=config.default_openai_model)
     messages = []
-    messages.append(build_message("You have access to two tools that let you execute python code on a tabletop system and return variables from that code to the user (you can also return new explicit values, the returned string will be 'eval'ed on the tabletop system). Please always reason about your chain of thought _before_ using any tools.", "system"))
-    messages.append(build_message("Hello!", 'user'))
+    messages.append(build_image_message("./data/latest_rgb_image.png", text="This is the current scene."))
+    messages.append(build_image_message("./data/image_to_display_in_message.png", text="I attempted to make a segmentation mask for a paper cup. I then overlayed my attempted mask on the scene, making the pixels more red where the mask is True. Is this segmentation for the paper cup correct?"))
+    messages.append(build_message("No, the segmentation mask you created is not correct for the paper cup. The red overlay is primarily on the white bowl, not the paper cup. The paper cup is to the right of the bowl and is not covered by the red overlay. You need to adjust the mask to correctly cover the paper cup.", 'assistant'))
+    messages.append(build_image_message("./data/image_to_display_in_message_2.png", text="what about this one?"))
+
     completion = gpt.chat_completion(messages)
     print(completion)

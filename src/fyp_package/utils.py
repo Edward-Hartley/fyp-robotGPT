@@ -3,6 +3,7 @@ from math import cos, sin, sqrt
 import math
 import pickle
 import cv2
+import os
 
 # as defined in proto.py but using math for trigonometric functions
 def euler2quat(x, y, z):
@@ -224,3 +225,17 @@ def save_numpy_image(path, image):
 
 def load_numpy_image(path):
     return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
+
+def log_viewed_image(path, log_directory):
+    os.makedirs(log_directory, exist_ok=True)
+    existing_files = os.listdir(log_directory)
+    if len(existing_files) > 0:
+        last_file = sorted(existing_files)[-1]
+        last_num = int(last_file.split('_')[-1].split('.')[0])
+    else:
+        last_num = -1
+
+    new_num = last_num + 1
+    new_path = os.path.join(log_directory, f"image_{new_num}.png")
+    # copy file across
+    os.system(f"cp {path} {new_path}")

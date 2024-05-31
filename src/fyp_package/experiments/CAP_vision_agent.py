@@ -344,10 +344,12 @@ class LMP_wrapper():
 
     def move_robot(self, position_xyz):
         return self.env.move_robot(position_xyz, relative=False)
-
-    def follow_traj(self, traj):
-        for pos in traj:
-            self.move_robot(pos)
+    
+    def open_gripper(self):
+        return self.env.open_gripper()
+    
+    def close_gripper(self):
+        return self.env.close_gripper()
 
     def get_corner_positions(self):
         normalized_corners = np.array([
@@ -426,18 +428,15 @@ class LMP_wrapper():
     def get_images(self):
         return self.env.get_images(save=True)
     
-    def display_image(self, array_or_image):
-        # Save in image_to_display_in_message_path
-        if isinstance(array_or_image, np.ndarray):
-            # if mask, it'll be booleans, convert to image
-            if array_or_image.dtype == bool:
-                array_or_image = array_or_image.astype(np.uint8) * 255
-            if array_or_image.ndim == 2:
-                array_or_image = np.stack([array_or_image] * 3, axis=-1)
-            image = Image.fromarray(array_or_image, mode='RGB')
-        else:
-            image = array_or_image
-        image.save(config.image_to_display_in_message_path)
+    def display_image(self, image_array):
+        image_array = np.uint8(np.array(image_array))
+        # if mask, it'll be booleans, convert to image
+        if image_array.dtype == bool:
+            image_array = image_array * 255
+        if image_array.ndim == 2:
+            image_array = np.stack([image_array] * 3, axis=-1)
+
+        utils.save_numpy_image(config.image_to_display_in_message_path, image_array)
 
     def detect_grasp(self, mask, depth):
         depth_path = config.chosen_depth_image_path
@@ -604,7 +603,7 @@ def setup_LMP(env: environment.Environment, cfg_tabletop):
   vision_variable_vars['detect_grasp'] = LMP_env.detect_grasp
 
   # creating the vision LMP for object detection
-  lmp_vision = vision_LMP.setup_vision_LMP(lmp_fgen=None, environment_vars=vision_variable_vars)
+  lmp_vision = vision_LMP.setup_vision_LMP(environment_vars=vision_variable_vars)
 
   variable_vars['vision_assistant'] = lmp_vision
 

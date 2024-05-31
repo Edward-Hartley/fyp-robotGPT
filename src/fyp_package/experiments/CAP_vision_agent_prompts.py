@@ -434,6 +434,8 @@ Follow the format below; code following a **CODE** tag should be python code, an
 All coordinates and dimensions are in meters. Before using any tools, you should outline reasonable expectations about the objects you have been tasked with detecting. When verifying results, use code to filter out unreasonable detections.
 When models return unexpected results (multiple detections or zero detections, strange object dimensions), you should try using them with different prompts or using common sense to infer the correct detection (e.g. a banana should not have a width of 10 meters, or 'paper' might also be detected with the prompt 'piece of paper' or 'white paper'). Err on the side of caution.
 Features that you can use to discriminate between objects include the absolute values of the dimensions, the relative values of the dimensions, and the relative positions of the objects.
+When this does not work, you can try viewing an image of the environment yourself to gain contextual information. You can only use this information to verify results and guide future model uses. You may use code to create your own images to view, and then use display_image to view them.
+You can only view a single image at a time.
 
 On the tabletop system, these functions are already defined:
 {functions_docs}
@@ -636,8 +638,8 @@ Detection 2
 Position of paper cup: [-0.063, -0.320, 0.118]
 Dimensions:
 Width: 0.086
-Length: 0.073
-Height: 0.120
+Length: 0.123
+Height: 0.070
 Orientation along shorter side (width): 0.743
 Orientation along longer side (length): -0.892
 
@@ -670,7 +672,7 @@ print("Number of filtered detections:", len(filtered_detections))
 
 '''
 stdout:
-Dimensions: 0.086, 0.073, 0.120
+Dimensions: 0.086, 0.123, 0.070
 Number of filtered detections: 1
 '''.strip(),
   
@@ -690,19 +692,48 @@ No grasp detected. Returned None, None.
 
 '''
 The grasp detection did not return a grasp position, this could be due to the orientation of the object or the quality of the mask.
-Paper cups are an easy to grasp object, I will try the other mask. I am not sure which was filtered so I will try both.
+I want to check whether this mask correctly points to a paper cup.
+I will use the `display_image` function to view the mask and verify that it is correct.
+When viewing an image I must remind myself:
+* I can only view a single image at a time.
+* I should only use this information to verify results and guide future model uses.
+* I can only infer simple information such as the existence of objects or their rough relative positions.
 **CODE**
-for i, mask in enumerate(filtered_masks):
-    print(f"Trying mask {i}")
-    grasp_position, grasp_angle = detect_grasp(mask, depth)
-    if grasp_position is not None:
-        break
+display_image(filtered_masks[0])
 '''.strip(),
 
 '''
 stdout:
-Trying mask 0
-Detected grasp with contact point at [0.121, -0.141, 0.106]
+Image redacted in example. It shows a black and white mask.
+'''
+
+'''
+The image of just the mask is hard to interpret, the black and white shape is very abstract.
+I will create my own image to view the mask in context.
+**CODE**
+# overlay the mask on the rgb image as 
+overlay = np.zeros_like(rgb)
+overlay[filtered_masks[0]] = [255, 0, 0]
+rgb_overlay = cv2.addWeighted(rgb, 0.5, overlay, 0.5, 0)
+display_image(rgb_overlay)
+'''
+
+'''
+stdout:
+Image redacted in example. It shows the rgb image with the mask overlayed, highlighted in red.
+'''
+
+'''
+I can see that the mask successfully captures the paper cup. However, the paper cup in the image is on it's side, which may be causing the grasp detection to fail.
+Also, I am allowed to reason about the existence of objects in the image, and there was only one paper cup. I will not try to detect a grasp using the other mask.
+The grasp detection model may be unreliable for objects on their side, I am going to try it again before considering alternatives.
+**CODE**
+grasp_position, grasp_angle = detect_grasp(filtered_masks[0], depth)
+'''.strip(),
+
+'''
+stdout:
+Detected grasp with contact point at [-0.053, -0.329, 0.120]
 Grasp rotation about z-axis: 0.239
 '''.strip(),
 
@@ -712,11 +743,11 @@ The user wanted the grasp position and angle, so I will return these values.
 **RET**
 grasp_position, grasp_angle
 '''.strip(),
+]
 
-'''
+vision_final_system_message = '''
 The following message is the real user's query. All previous variables are no longer defined and you must start from scratch.
 '''.strip(),
-]
 
 vision_function_docs = {
     "get_images": '''
@@ -727,7 +758,7 @@ vision_function_docs = {
         depth: a numpy array representing the depth image, shape (height, width)
 
     Example:
-        rgb, depth = get_images()
+        rgb, depth = get_images() # np.uint8[image_height, image_width, 3], np.float32[image_height, image_width]
     ''',
     "detect_object": '''
     Get object detections and corresponding masks from the rgb image and depth array.
@@ -747,21 +778,22 @@ vision_function_docs = {
     Example:
         detections, masks = detect_object('banana', rgb, depth)
         object_1_position = detections[0]['position'] # [x, y, z]
-        object_1_width = detections[0]['width']
+        object_1_width = detections[0]['width'] # float
         object_1_length = detections[0]['length']
         object_1_height = detections[0]['height']
-        object_1_mask = masks[0]
+        object_1_mask = masks[0] # bool[image_height, image_width]
     ''',
     "display_image": '''
     Request to view an image yourself, it will be added in the following message.
-    Don't try to view depth maps as they are hard to interpret, view rgb images, masks or your own images that you have constructed for vision verification.
+    You should only use this to view rgb images, masks or your own images that you have constructed for vision verification.
 
     Args:
-        image_or_array: a numpy array representing the image, shape (height, width, 3) or shape (height, width) or an Image object
+        image_array: a numpy array representing an image, shape (height, width, 3) or shape (height, width)
 
     Example:
         display_image(rgb)
         display_image(mask)
+        display_image(my_image_array)
     ''',
     "detect_grasp": '''
     Get a suggested position of the best grasp available for an object from its segmentation mask and depth array.

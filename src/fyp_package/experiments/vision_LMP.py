@@ -1,25 +1,18 @@
 # %%
 from io import StringIO
 from contextlib import redirect_stdout
-from fyp_package import config, object_detection_utils, utils, model_client, environment, gpt_model
+from fyp_package import config, utils, gpt_model
 from fyp_package.gpt_model import build_message, build_image_message
 from fyp_package.experiments.CAP_vision_agent_prompts import *
 
 # imports for LMPs
 import numpy as np
-import os
 import cv2
 from PIL import Image
-import shapely
-from shapely.geometry import *
-from shapely.affinity import *
-
-
-client = gpt_model.GptModel(model=config.cheap_openai_model)
 
 class VisionLMP:
 
-    def __init__(self, name, cfg, lmp_fgen, fixed_vars, variable_vars):
+    def __init__(self, name, cfg, fixed_vars, variable_vars):
         self._name = name
         self._cfg = cfg
 
@@ -29,7 +22,6 @@ class VisionLMP:
         self._fixed_vars = fixed_vars
         self._variable_vars = variable_vars
         self.exec_hist = ''
-        self._lmp_fgen = lmp_fgen
 
         self.gpt_model = gpt_model.GptModel(
             model=self._cfg['model'],
@@ -60,7 +52,7 @@ class VisionLMP:
                 else:
                     messages.append(build_message(message, 'system'))
 
-
+        messages.append(build_message(vision_final_system_message, 'system'))
         messages.append(build_message(query, 'user'))
         print('Initial messages vision assistant')
         # utils.print_openai_messages(messages[0])
@@ -99,8 +91,7 @@ class VisionLMP:
                 print("Returned value:", eval(code_str, gvars, lvars))
                 return self.confirm_return(messages, eval(code_str, gvars, lvars), query, lvars)
 
-            if not self._cfg['debug_mode']:
-                stdout = exec_safe(code_str, gvars, lvars)
+            stdout = exec_safe(code_str, gvars, lvars)
 
             self.exec_hist += f'\n{code_str}'
 
@@ -112,6 +103,10 @@ class VisionLMP:
             utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
             messages.append(build_message(system_message, 'system'))
+
+            if "display_image(" in code_str:
+                messages.append(build_image_message(config.image_to_display_in_message_path, 'user'))
+                utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
     def confirm_return(self, messages, ret_val, query, lvars):
         confirmation_message = (
@@ -143,16 +138,6 @@ class VisionLMP:
 
         if sections[1] == 'RET':
             return eval(code_str, gvars, lvars)
-
-
-def var_exists(name, all_vars):
-    try:
-        eval(name, all_vars)
-    except:
-        exists = False
-    else:
-        exists = True
-    return exists
 
 
 def merge_dicts(dicts):
@@ -196,7 +181,6 @@ cfg_vision_lmp = {
       'query_suffix': '.',
       'stop': None,
       'maintain_session': True,
-      'debug_mode': False,
       'include_context': True,
       'has_return': False,
       'return_val_name': 'ret_val',
@@ -205,23 +189,18 @@ cfg_vision_lmp = {
 }
 
 # %%
-def setup_vision_LMP(lmp_fgen=None, environment_vars={}):
+def setup_vision_LMP(environment_vars={}):
 
   # creating APIs that the LMPs can interact with
   fixed_vars = {
       'np': np,
-      'os': os,
       'cv2': cv2,
       'PIL.Image': Image,
   }
-  fixed_vars.update({
-      name: eval(name)
-      for name in shapely.geometry.__all__ + shapely.affinity.__all__
-  })
 
   # creating the LMP that deals w/ vision
   lmp_vision_assistant = VisionLMP(
-      'vision_assistant', cfg_vision_lmp['lmps']['vision_assistant'], lmp_fgen, fixed_vars, environment_vars
+      'vision_assistant', cfg_vision_lmp['lmps']['vision_assistant'], fixed_vars, environment_vars
   )
 
   return lmp_vision_assistant
