@@ -107,7 +107,6 @@ if __name__ == "__main__":
 
         masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "paper cup", save=True)
         masks = np.load(config.latest_segmentation_masks_path)
-        print(masks)
         phrases = ["paper cup"] * len(masks)
 
         np.save(config.chosen_segmentation_mask_path, masks[0])
@@ -146,7 +145,7 @@ if __name__ == "__main__":
         print(utils.quat2euler(grasp_orientation))
 
 
-        print(utils.quat2euler(env.get_ee_pose()[1]))
+        print(env.get_ee_pose()[1])
         
         env.put_first_on_second(contact_point, config.robot_ready_position, grasp_z_rot)
 

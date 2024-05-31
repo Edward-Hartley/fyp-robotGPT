@@ -11,8 +11,6 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
 
     results = [{} for _ in range(len(segmentation_texts))]
 
-    print("cube_coords:", cubes_coords)
-
     for i, cube_coords in enumerate(cubes_coords):
 
         print("Detection " + str(i + 1))
@@ -59,7 +57,7 @@ def get_segmentation_mask(model_predictions, segmentation_threshold):
 
 def get_max_contour(mask, mask_width, mask_height):
 
-    step = 1
+    step = 10
     if np.count_nonzero(mask) > (mask_width * mask_height) / 4:
         # object is very large, reduce number of points
         step = 20
@@ -73,7 +71,7 @@ def get_max_contour(mask, mask_width, mask_height):
 
     contour_index = None
 
-    max_length = -1
+    max_length = 0
     for c, contour in enumerate(contours):
         contour_points = [(c, r) for r in range(0, mask_height, step) for c in range(0, mask_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1]
         if len(contour_points) > max_length:
@@ -94,7 +92,7 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
     bounding_cubes = []
     bounding_cubes_orientations = []
 
-    for i, mask in enumerate(masks):
+    for mask in masks:
 
         contour = get_max_contour(mask, image_width, image_height)
 
@@ -103,53 +101,53 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
         # cv.imshow("overlayed", overlayed)
         # cv.waitKey(0)
 
-        if contour is not None:
-            step = 1
-            if np.count_nonzero(mask) > (image_width * image_height) / 4:
-                # object is very large, reduce number of points
-                step = 20
+        step = 10
+        if np.count_nonzero(mask) > (image_width * image_height) / 4:
+            # object is very large, reduce number of points
+            step = 20
 
-
-            # contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
+        if contour is None:
             contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_width-1, step) for c in range(0, image_height-1, step) if mask[r][c] and depth_array[r][c] not in config.invalid_depth_values]
-            contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
+        else:
+            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
+        contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
-            # # use matplotlib to plot the height map
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(np.array(contour_world_points)[::20, 0], np.array(contour_world_points)[::20, 1], np.array(contour_world_points)[::20, 2])
-            # plt.show()
+        # # use matplotlib to plot the height map
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(np.array(contour_world_points)[::20, 0], np.array(contour_world_points)[::20, 1], np.array(contour_world_points)[::20, 2])
+        # plt.show()
 
 
-            max_z_coordinate = np.max(np.array(contour_world_points)[:, 2])
-            min_z_coordinate = np.min(np.array(contour_world_points)[:, 2])
+        max_z_coordinate = np.max(np.array(contour_world_points)[:, 2])
+        min_z_coordinate = np.min(np.array(contour_world_points)[:, 2])
 
-            rect = MultiPoint([world_point[:2] for world_point in contour_world_points]).minimum_rotated_rectangle
+        rect = MultiPoint([world_point[:2] for world_point in contour_world_points]).minimum_rotated_rectangle
 
-            if isinstance(rect, Polygon):
-                bounding_cube = {'top': {}, 'bottom': {}}
+        if isinstance(rect, Polygon):
+            bounding_cube = {'top': {}, 'bottom': {}}
 
-                rect = polygon.orient(rect, sign=-1)
-                box = rect.exterior.coords
-                box = np.array(box[:-1])
-                box_min_x = np.argmin(box[:, 0])
-                box = np.roll(box, -box_min_x, axis=0)
-                box_top = [list(point) + [max_z_coordinate] for point in box]
-                box_btm = [list(point) + [min_z_coordinate] for point in box]
-                box_top_mean = list(np.mean(box_top, axis=0))
-                box_btm_mean = list(np.mean(box_btm, axis=0))
+            rect = polygon.orient(rect, sign=-1)
+            box = rect.exterior.coords
+            box = np.array(box[:-1])
+            box_min_x = np.argmin(box[:, 0])
+            box = np.roll(box, -box_min_x, axis=0)
+            box_top = [list(point) + [max_z_coordinate] for point in box]
+            box_btm = [list(point) + [min_z_coordinate] for point in box]
+            box_top_mean = list(np.mean(box_top, axis=0))
+            box_btm_mean = list(np.mean(box_btm, axis=0))
 
-                bounding_cube['top']['corners'] = np.array(box_top)
-                bounding_cube['bottom']['corners'] = np.array(box_btm)
-                bounding_cube['top']['center'] = np.array(box_top_mean)
-                bounding_cube['bottom']['center'] = np.array(box_btm_mean)
+            bounding_cube['top']['corners'] = np.array(box_top)
+            bounding_cube['bottom']['corners'] = np.array(box_btm)
+            bounding_cube['top']['center'] = np.array(box_top_mean)
+            bounding_cube['bottom']['center'] = np.array(box_btm_mean)
 
-                bounding_cubes.append(bounding_cube)
+            bounding_cubes.append(bounding_cube)
 
-                # Calculating rotation in world frame
-                bounding_cubes_orientation_width = np.arctan2(box[1][1] - box[0][1], box[1][0] - box[0][0])
-                bounding_cubes_orientation_length = np.arctan2(box[2][1] - box[1][1], box[2][0] - box[1][0])
-                bounding_cubes_orientations.append([bounding_cubes_orientation_width, bounding_cubes_orientation_length])
+            # Calculating rotation in world frame
+            bounding_cubes_orientation_width = np.arctan2(box[1][1] - box[0][1], box[1][0] - box[0][0])
+            bounding_cubes_orientation_length = np.arctan2(box[2][1] - box[1][1], box[2][0] - box[1][0])
+            bounding_cubes_orientations.append([bounding_cubes_orientation_width, bounding_cubes_orientation_length])
 
     return bounding_cubes, bounding_cubes_orientations
 

@@ -68,7 +68,10 @@ class PhysicalEnvironment(Environment):
         return realsense_camera.RealsenseCamera()
 
     def get_ee_pose(self):
-        return self.robot.get_robot_pose()
+        pos, quat = self.robot.get_robot_pose()
+        euler = utils.quat2euler(quat)
+        adjusted_euler = utils.rotate_euler_by_inverse_of_quat(euler, config.robot_vertical_orientation_q)
+        return pos, adjusted_euler
 
     def open_gripper(self):
         return self.robot.open_gripper()
@@ -76,8 +79,14 @@ class PhysicalEnvironment(Environment):
     def close_gripper(self):
         return self.robot.close_gripper()
 
-    def move_robot(self, position=config.robot_ready_position, orientation=None, relative=False):
-        return self.robot.move_robot(position, orientation, relative)
+    def move_robot(self, position=config.robot_ready_position, orientation_e=[0, 0, 0], relative=False):
+        if relative:
+            orientation = utils.euler2quat(*orientation_e)
+        else:
+            orientation = utils.rotate_quat_by_euler(config.robot_vertical_orientation_q, orientation_e)
+
+        self.robot.move_robot(position, orientation, relative)
+        return self.get_ee_pose()
 
     # pick orientation is a scalar representing the angle of rotation around the z-axis
     # it should be in the range [-pi/2, pi/2]
@@ -86,8 +95,7 @@ class PhysicalEnvironment(Environment):
             pick_orientation = config.robot_vertical_orientation_q
         else:
             rotation_euler = [0, 0, pick_angle]
-            pick_orientation = utils.rot2quat(utils.quat2rot(config.robot_vertical_orientation_q) @ utils.quat2rot(utils.euler2quat(*rotation_euler)))
-
+            pick_orientation = utils.rotate_quat_by_euler(config.robot_vertical_orientation_q, rotation_euler)
 
         pick_pos = np.array(pick_pos)
         place_pos = np.array(place_pos)
@@ -106,11 +114,11 @@ class PhysicalEnvironment(Environment):
         # Move to object.
         ee_xyz = self.get_ee_pose()[0]
         while np.linalg.norm(hover_xyz - ee_xyz) > 0.03:
-            self.move_robot(hover_xyz, pick_orientation)
+            self.robot.move_robot(hover_xyz, pick_orientation)
             ee_xyz = self.get_ee_pose()[0]
 
         while np.linalg.norm(pick_xyz - ee_xyz) > 0.03:
-            self.move_robot(pick_xyz, pick_orientation)
+            self.robot.move_robot(pick_xyz, pick_orientation)
             ee_xyz = self.get_ee_pose()[0]
 
         # Pick up object.
@@ -118,18 +126,18 @@ class PhysicalEnvironment(Environment):
         time.sleep(1)
 
         while np.linalg.norm(hover_xyz - ee_xyz) > 0.03:
-            self.move_robot(hover_xyz)
+            self.robot.move_robot(hover_xyz)
             ee_xyz = self.get_ee_pose()[0]
 
         # Move to place location.
         while np.linalg.norm(place_xyz - ee_xyz) > 0.03:
-            self.move_robot(place_xyz)
+            self.robot.move_robot(place_xyz)
             ee_xyz = self.get_ee_pose()[0]
 
         # Place down object.
         place_xyz[2] = 0.1
         while np.linalg.norm(place_xyz - ee_xyz) > 0.03:
-            self.move_robot(place_xyz)
+            self.robot.move_robot(place_xyz)
             ee_xyz = self.get_ee_pose()[0]
 
         self.open_gripper()
@@ -138,7 +146,7 @@ class PhysicalEnvironment(Environment):
         place_xyz[2] = 0.2
         ee_xyz = self.get_ee_pose()[0]
         while np.linalg.norm(place_xyz - ee_xyz) > 0.03:
-            self.move_robot(place_xyz)
+            self.robot.move_robot(place_xyz)
             ee_xyz = self.get_ee_pose()[0]
 
         self.reset_robot()
@@ -166,7 +174,13 @@ class SimulatedEnvironment(Environment):
         self.sim.reset(self.obj_list)
 
     def get_ee_pose(self):
-        return self.sim.get_ee_pose()
+        pos, quat = self.sim.get_ee_pose()
+        euler = utils.quat2euler(quat)
+        adjusted_euler = utils.rotate_euler_by_inverse_of_quat(euler, config.sim_robot_vertical_q)
+        # Rotate the orientation back by 90 degrees to match the orientation of the robot in the physical environment
+        adjusted_euler = np.array([-adjusted_euler[1], adjusted_euler[0], adjusted_euler[2]])
+
+        return pos, adjusted_euler
 
     def open_gripper(self):
         self.sim.gripper.release()
@@ -178,9 +192,17 @@ class SimulatedEnvironment(Environment):
         for _ in range(240):
             self.sim.step_sim_and_render()
 
-    def move_robot(self, position, orientation=None, relative=False):
+    def move_robot(self, position, orientation_e=np.array([0, 0, 0]), relative=False):
+
+        # Rotate the orientation by 90 degrees to match the orientation of the robot in the physical environment
+        orientation_e = np.array([orientation_e[1], -orientation_e[0], orientation_e[2]])
+
         if relative:
+            orientation = utils.rotate_quat_by_euler(self.get_ee_pose()[1], orientation_e)
             position = np.array(position) + np.array(self.get_ee_pose()[0])
+        else:
+            orientation = utils.rotate_quat_by_euler(config.sim_robot_vertical_q, orientation_e)
+            
         self.sim.move_ee(position, orientation)
         return self.get_ee_pose()
 
@@ -212,26 +234,44 @@ if __name__ == "__main__":
 
 
 
+    physical_env = PhysicalEnvironment()
+    sim_env = SimulatedEnvironment(3, 3)
 
-    env = SimulatedEnvironment(3, 3)
-    rgb, depth = env.get_images(save=True)
-    print(env.get_ee_pose())
+    # rgb, depth = env.get_images(save=True)
+    print("sim:", sim_env.get_ee_pose())
+    print("physical:", physical_env.get_ee_pose())
 
-    current_quat = env.get_ee_pose()[1]
-    # while True:
-    #     euler = eval(input("Enter euler angles: "))
-    #     print(utils.quat2euler(env.get_ee_pose()[1]))
-    #     new_quat = utils.rot2quat(utils.quat2rot(current_quat) @ utils.quat2rot(utils.euler2quat(*euler)))
+    euler = [0, 0, 0]
 
-    #     env.move_robot([0, -0.5, 0.2], new_quat)
-    #     env.move_robot([0, -0.5, 0.3], new_quat)
-    #     env.move_robot([0, -0.5, 0.2], new_quat)
-    #     env.move_robot([0, -0.5, 0.3], new_quat)
+    # relative = False test
+    while euler != -1:
 
-    #     print(utils.quat2euler(new_quat))
+        sim_env.move_robot([0, -0.5, 0.2], euler)
+        sim_env.move_robot([0, -0.5, 0.3], euler)
 
+        physical_env.move_robot([0, -0.3, 0.2], euler)
+        physical_env.move_robot([0, -0.3, 0.3], euler)
 
-    colour = input("Press Enter to pick and place")
-    block = env.sim.get_obj_pos(f'{colour} block')
-    bowl = env.sim.get_obj_pos(f'{colour} bowl')
-    env.put_first_on_second(block, bowl, np.pi/2)
+        print("sim:", sim_env.get_ee_pose()[1])
+        print("physical:", physical_env.get_ee_pose()[1])
+
+        euler = eval(input("Enter euler angles: "))
+    # relative = True test
+
+    euler = [0, 0, 0]
+    while euler != -1:
+        sim_env.move_robot([0, 0, -0.1], euler, relative=True)
+        sim_env.move_robot([0, 0, 0.1], euler, relative=True)
+
+        physical_env.move_robot([0, 0, -0.1], euler, relative=True)
+        physical_env.move_robot([0, 0, 0.1], euler, relative=True)
+
+        print("sim:", sim_env.get_ee_pose()[1])
+        print("physical:", physical_env.get_ee_pose()[1])
+
+        euler = eval(input("Enter euler angles: "))
+
+    # colour = input("Press Enter to pick and place")
+    # block = env.sim.get_obj_pos(f'{colour} block')
+    # bowl = env.sim.get_obj_pos(f'{colour} bowl')
+    # env.put_first_on_second(block, bowl, np.pi/2)

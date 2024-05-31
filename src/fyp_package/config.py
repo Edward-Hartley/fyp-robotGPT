@@ -108,6 +108,11 @@ robot_vertical_orientation_e = [np.pi, 0, 0]
 robot_vertical_orientation_q = euler2quat(*robot_vertical_orientation_e)
 robot_tucked_position = [0, -0.2, 0.35]
 
+#### Sim robot
+
+sim_robot_vertical_e = [np.pi, 0, - np.pi / 2]
+sim_robot_vertical_q = euler2quat(*sim_robot_vertical_e)
+
 #### Paths
 
 latest_rgb_image_path = "./data/latest_rgb_image.png"

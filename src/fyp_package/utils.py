@@ -184,6 +184,26 @@ def tf_trans(T):
   assert T.shape == (4, 4)
   return T[0:3, 3]
 
+def tf_inv(T):
+  """ Return inverse of 4x4 homogeneous transform """
+  assert T.shape == (4, 4)
+  T_inv = np.linalg.inv(T)
+  return T_inv
+
+def rotate_quat_by_euler(q, euler):
+  """
+  Rotate a quaternion by euler angles.
+  """
+  return rot2quat(quat2rot(q) @ quat2rot(euler2quat(*euler)))
+
+def rotate_euler_by_inverse_of_quat(euler, q):
+  """
+  Rotate euler angles by the inverse of a quaternion.
+  """
+  return quat2euler(rot2quat((quat2rot(q).T @ quat2rot(euler2quat(*euler)))))
+
+#### OpenAI utils
+
 def get_api_key():
     # openai api key in .openai_key file
     with open('.openai_key', 'r') as f:

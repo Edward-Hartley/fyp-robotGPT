@@ -137,7 +137,7 @@ class PickPlaceEnv():
     pybullet.setTimeStep(self.dt)
 
     self.home_joints = [-np.pi/2,0.2,0,-1.3,0, 1.6, np.pi/4, 0, 0]  # Joint angles: (J0, J1, J2, J3, J4, J5, J6, finger_left, finger_right).
-    self.home_ee_euler = (np.pi, 0, - np.pi / 2)  # (RX, RY, RZ) rotation in Euler angles.
+    self.home_ee_euler = config.sim_robot_vertical_e  # (RX, RY, RZ) rotation in Euler angles.
     self.ee_link_id = 8  # Link ID of Panda end effector.
     self.tip_link_id = 11  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
     self.gripper = None
@@ -261,7 +261,7 @@ class PickPlaceEnv():
   def get_ee_pose(self):
     ee_pos, ee_quat = pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
     # take offset from z to account for the gripper
-    offset = np.array([0, 0, -self.gripper_height])
+    offset = np.array([0, 0, self.gripper_height])
     rotation = pybullet.getMatrixFromQuaternion(ee_quat)
     rotation = np.float32(rotation).reshape(3, 3)
     offset_rotated = rotation @ offset
@@ -272,11 +272,14 @@ class PickPlaceEnv():
     return pybullet.getLinkState(self.robot_id, self.tip_link_id)[0:2]
   
   def move_ee(self, position, orientation = None):
-    ee_xyz = self.get_ee_pos()
-    while np.linalg.norm(position - ee_xyz) > 0.01:
+    if orientation is None:
+      orientation = pybullet.getQuaternionFromEuler(self.home_ee_euler)
+
+    ee_xyz, ee_quat = self.get_ee_pose()
+    while np.linalg.norm(position - ee_xyz) > 0.01 or np.linalg.norm(orientation - ee_quat) > 0.05:
       self.movep(position, orientation)
       self.step_sim_and_render()
-      ee_xyz = self.get_ee_pos()
+      ee_xyz, ee_quat = self.get_ee_pose()
 
   def step(self, action=None):
     """Do pick and place motion primitive."""
@@ -286,7 +289,7 @@ class PickPlaceEnv():
     if 'pick_angle' in action:
       if action['pick_angle'] is not None:
         rotation_euler = [0, 0, action['pick_angle']]
-        pick_orientation = utils.rot2quat(utils.quat2rot(pick_orientation) @ utils.quat2rot(utils.euler2quat(*rotation_euler)))
+        pick_orientation = utils.rotate_quat_by_euler(pick_orientation, rotation_euler)
 
     # Set fixed primitive z-heights.
     hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])

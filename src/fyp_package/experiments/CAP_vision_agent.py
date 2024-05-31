@@ -342,8 +342,11 @@ class LMP_wrapper():
         # return robot end-effector xyz position in robot base frame
         return self.env.get_ee_pose()[0]
 
-    def move_robot(self, position_xyz):
-        return self.env.move_robot(position_xyz, relative=False)
+    def move_robot(self, position_xyz, orientation_e=None):
+        return self.env.move_robot(position_xyz, orientation_e, relative=False)
+    
+    def move_robot_relative(self, position_xyz, orientation_e=None):
+        return self.env.move_robot(position_xyz, orientation_e, relative=True)
     
     def open_gripper(self):
         return self.env.open_gripper()
@@ -453,7 +456,8 @@ class LMP_wrapper():
         grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
 
         contact_point = config.cam2base_tf @ np.concatenate([contact_point_cam, [1]])[:3]
-        contact_point[2] -= 0.03
+        # placeholder to remind this might be needed
+        contact_point[2] -= 0.0
 
         grasp_position = utils.tf_trans(grasp2base_tf)
         grasp_orientation = utils.tf_rot(grasp2base_tf)
