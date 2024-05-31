@@ -80,6 +80,10 @@ class PhysicalEnvironment(Environment):
         return self.robot.close_gripper()
 
     def move_robot(self, position=config.robot_ready_position, orientation_e=[0, 0, 0], relative=False):
+        # can be actively set to None despite default value
+        if orientation_e is None:
+            orientation_e = [0, 0, 0]
+
         if relative:
             orientation = utils.euler2quat(*orientation_e)
         else:
@@ -154,8 +158,9 @@ class PhysicalEnvironment(Environment):
         return True
 
     def get_images(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):
-        color_image, depth_image = self.camera.get_frame(save, save_path_rgb, save_path_depth)
-        return color_image, depth_image
+        bgr, depth_image = self.camera.get_frame(save, save_path_rgb, save_path_depth)
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        return rgb, depth_image
 
 # For the pybullet simulation environment
 class SimulatedEnvironment(Environment):
@@ -192,7 +197,10 @@ class SimulatedEnvironment(Environment):
         for _ in range(240):
             self.sim.step_sim_and_render()
 
-    def move_robot(self, position, orientation_e=np.array([0, 0, 0]), relative=False):
+    def move_robot(self, position, orientation_e=[0, 0, 0], relative=False):
+        # can be actively set to None despite default value
+        if orientation_e is None:
+            orientation_e = [0, 0, 0]
 
         # Rotate the orientation by 90 degrees to match the orientation of the robot in the physical environment
         orientation_e = np.array([orientation_e[1], -orientation_e[0], orientation_e[2]])
@@ -236,6 +244,16 @@ if __name__ == "__main__":
 
     physical_env = PhysicalEnvironment()
     sim_env = SimulatedEnvironment(3, 3)
+
+    rgb1, depth1 = sim_env.get_images(save=True)
+    rgb2, depth2 = physical_env.get_images(save=True)
+    import matplotlib.pyplot as plt
+    plt.imshow(rgb1)
+    plt.show()
+    plt.imshow(rgb2)
+    plt.show()
+
+
 
     # rgb, depth = env.get_images(save=True)
     print("sim:", sim_env.get_ee_pose())

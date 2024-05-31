@@ -1,12 +1,13 @@
 prompt_tabletop_ui = '''
 # Python 2D robot control script
 import numpy as np
-from env_utils import put_first_on_second, get_obj_names, say, get_corner_name, get_side_name
+from env_utils import put_first_on_second, get_obj_names, say, get_corner_name, get_side_name, move_robot, move_robot_relative, open_gripper, close_gripper
 from plan_utils import parse_obj_name, parse_position, parse_question, transform_shape_pts, vision_assistant
 
 # Anything which can be picked up by grasping its center is easy to pick and place.
 # Some objects are harder, like cups, bowls, pans, etc. which require grasping a specific part.
 # For these objects we need to ask the vision assistant for the best place to grasp them.
+# For fine control over movement you can also use the move_robot and move_robot_relative functions, they require 3D positions.
 objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bowl', 'green bowl']
 # place the yellow block on the yellow bowl.
 say('Ok - putting the yellow block on the yellow bowl')
@@ -61,7 +62,7 @@ objects = ['yellow block', 'green block', 'yellow bowl', 'blue block', 'blue bow
 # hide the blue bowl.
 bowl_name = np.random.choice(['yellow bowl', 'green bowl'])
 say(f'Sounds good! Hiding the blue bowl under the {bowl_name}')
-# bowls are hard to grasp, so we need to ask the vision assistant for the best place to grasp them.
+say('bowls are hard to grasp, so we need to ask the vision assistant for the best place to grasp them.')
 bowl_pick_pos, bowl_pick_angle = vision_assistant(f'Return the [x, y, z] position and angle of best grasp for the {bowl_name}')
 put_first_on_second(bowl_pick_pos, 'blue bowl', bowl_pick_angle)
 objects = ['brown bowl', 'green block', 'brown block', 'green bowl', 'blue bowl', 'blue block']
@@ -98,18 +99,6 @@ objects = ['yellow bowl', 'blue block', 'yellow block', 'blue bowl']
 n_yellow_objs = parse_question('how many yellow objects are there', f'objects = {get_obj_names()}')
 say(f'there are {n_yellow_objs} yellow object')
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
-# move the other blocks to different corners.
-block_names = parse_obj_name(f'blocks other than the {left_block_name}', f'objects = {get_obj_names()}')
-corners = parse_position('the corners')
-say(f'Ok - moving the other {len(block_names)} blocks to different corners')
-for block_name, pos in zip(block_names, corners):
-  put_first_on_second(vision_assistant(f'Return the [x, y] position of the {block_name}'), pos)
-objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
-# is the pink block on the green bowl.
-if parse_question('is the pink block on the green bowl', f'objects = {get_obj_names()}'):
-  say('Yes - the pink block is on the green bowl.')
-else:
-  say('No - the pink block is not on the green bowl.')
 objects = ['pink block', 'green block', 'pink bowl', 'blue block', 'blue bowl', 'green bowl']
 # what are the blocks left of the green bowl.
 left_block_names =  parse_question('what are the blocks left of the green bowl', f'objects = {get_obj_names()}')
@@ -126,11 +115,14 @@ order_bottom_to_top = ['green bowl', 'blue block', 'green block', 'yellow block'
 say('stacking the blocks on the green bowl')
 stack_objects_in_order(object_names=order_bottom_to_top)
 objects = ['yellow block', 'green block', 'yellow bowl', 'gray block', 'gray bowl', 'green bowl']
-# show me what happens when the desert gets flooded by the ocean.
-say('putting the yellow bowl on the blue bowl')
-yellow_bowl_pos = vision_assistant('Return the [x, y] position of the yellow bowl')
-put_first_on_second(yellow_bowl_pos, 'blue bowl')
-objects = ['pink block', 'gray block', 'orange block']
+# push the yellow block to the right 5cm.
+say('Sure - pushing the yellow block to the right 5cm')
+say('I will need finer control and will use 3D positions for this.')
+yellow_block_pos_3d = vision_assistant('Return the [x, y, z] position of the yellow block')
+close_gripper()
+move_robot(yellow_block_pos_3d + [-0.03, 0, 0.1])
+move_robot_relative([0, 0, -0.1])
+move_robot_relative([0.05, 0, 0])
 # move all blocks 5cm toward the top.
 say('Ok - moving all blocks 5cm toward the top')
 block_names = parse_obj_name('the blocks', f'objects = {get_obj_names()}')
@@ -154,14 +146,14 @@ for block_name, pt in zip(block_names, triangle_pts):
 objects = ['paper cup', 'red bowl']
 # put the paper cup to the left of the bowl.
 say('Sure - putting the paper cup to the left of the red bowl')
-# cups are hard to grasp, so we need to ask the vision assistant for the best place to grasp them.
+say('cups are hard to grasp, so we need to ask the vision assistant for the best place to grasp them.')
 cup_pick_pos, cup_pick_angle = vision_assistant('Return the [x, y, z] position and angle of the best grasp point for the paper cup')
 place_pos = parse_position('a point 10cm to the left of the red bowl')
 put_first_on_second(cup_pick_pos, place_pos, pick_angle=cup_pick_angle)
 objects = ['brown bowl', 'red block', 'brown block', 'red bowl', 'pink bowl', 'pink block']
 # move the red bowl to the top right corner.
 say('Got it - moving the red bowl to the top right corner')
-# bowls are hard to grasp, so we need to ask the vision assistant for the best place to grasp them.
+say('bowls are hard to grasp, so we need to ask the vision assistant for the best place to grasp them.')
 red_bowl_pick_pos, red_bowl_pick_angle = vision_assistant('Return the [x, y, z] position and angle of the red bowl')
 top_right_corner_pos = parse_position('top right corner')
 put_first_on_second(red_bowl_pick_pos, top_right_corner_pos, pick_angle=red_bowl_pick_angle)
@@ -171,7 +163,7 @@ say('Sure - putting one paper cup inside the other')
 cup_positions = vision_assistant('Return a list of [x, y, z] positions of the paper cups')
 pick_cup_pos = cup_positions[0]
 place_cup_pos = cup_positions[1]
-# cups are hard to grasp, so we need to ask the vision assistant for the best place to grasp the one we are picking up.
+say('cups are hard to grasp, so we need to ask the vision assistant for the best place to grasp the one we are picking up.')
 pick_cup_pick_pos, pick_cup_pick_angle = vision_assistant(f'Return the [x, y, z] position and angle of the best grasp point for the paper cup at {pick_cup_pos}')
 put_first_on_second(pick_cup_pick_pos, place_cup_pos, pick_angle=pick_cup_pick_angle)
 objects = ['brown bowl', 'red block', 'brown block', 'red bowl', 'pink bowl', 'pink block']
@@ -419,7 +411,7 @@ put_first_on_second(object1_pos, object0_pos)
 
 # example: get the position of the first object.
 obj_names = get_obj_names()
-pos_2d = vision_assistant(f'Return the [x, y] position of the {obj_names}'[0])
+pos_2d = vision_assistant(f'Return a list of the [x, y] positions of the {obj_names}')[0]
 '''.strip()
 
 
@@ -747,7 +739,7 @@ grasp_position, grasp_angle
 
 vision_final_system_message = '''
 The following message is the real user's query. All previous variables are no longer defined and you must start from scratch.
-'''.strip(),
+'''.strip()
 
 vision_function_docs = {
     "get_images": '''

@@ -54,7 +54,11 @@ class VisionLMP:
 
         messages.append(build_message(vision_final_system_message, 'system'))
         messages.append(build_message(query, 'user'))
+
         print('Initial messages vision assistant')
+        print(messages[-1])
+        utils.log_completion(self._name, messages[-1], config.latest_generation_logs_path)
+
         # utils.print_openai_messages(messages[0])
 
         return messages
@@ -105,7 +109,7 @@ class VisionLMP:
             messages.append(build_message(system_message, 'system'))
 
             if "display_image(" in code_str:
-                messages.append(build_image_message(config.image_to_display_in_message_path, 'user'))
+                messages.append(build_image_message(config.image_to_display_in_message_path))
                 utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
     def confirm_return(self, messages, ret_val, query, lvars):
@@ -167,6 +171,8 @@ def exec_safe(code_str, gvars=None, lvars=None):
             if e.args[0] == "name 'rgb' is not defined":
                 exec("rgb, depth = get_images()", custom_gvars, lvars)
                 exec(code_str, custom_gvars, lvars)
+            else:
+                raise e
     return out.getvalue()
 
 cfg_vision_lmp = {
@@ -239,7 +245,8 @@ if __name__ == '__main__':
         'get_images': dummy_get_images,
         'detect_object': dummy_detect_object,
         'detect_grasp': dummy_detect_grasp,
+        # display_image
         }
     lmp_vision_assistant = setup_vision_LMP(None, environment_vars)
 
-    lmp_vision_assistant('Return the [x, y, z] coordinates of where to grasp the red bowl')
+    lmp_vision_assistant('Return the [x, y, z] coordinates of the red block')

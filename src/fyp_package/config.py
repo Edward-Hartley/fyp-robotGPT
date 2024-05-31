@@ -97,7 +97,7 @@ real_corner_pos = {
 }
 real_table_z = real_bounds[2, 0]
 
-real_object_list = ["paper cup", "white bowl"]
+real_object_list = ["paper cup", "white bowl", "red block"]
 
 #### Real robot
 

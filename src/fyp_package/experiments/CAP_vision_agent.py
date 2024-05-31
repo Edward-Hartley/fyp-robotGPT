@@ -179,6 +179,8 @@ class LMPFGen:
         gvars = merge_dicts([self._fixed_vars, self._variable_vars, other_vars])
         lvars = {}
 
+        print(f'Executing function creation code:\n\n{f_src}\n')
+
         exec_safe(f_src, gvars, lvars)
 
         f = lvars[f_name]
@@ -439,6 +441,7 @@ class LMP_wrapper():
         if image_array.ndim == 2:
             image_array = np.stack([image_array] * 3, axis=-1)
 
+        print("Displaying image...")
         utils.save_numpy_image(config.image_to_display_in_message_path, image_array)
 
     def detect_grasp(self, mask, depth):
@@ -594,7 +597,7 @@ def setup_LMP(env: environment.Environment, cfg_tabletop):
           'denormalize_xy',
           'put_first_on_second', 'get_obj_names',
           'get_corner_name', 'get_side_name',
-
+          'move_robot', 'move_robot_relative', 'open_gripper', 'close_gripper',
           # 'get_obj_pos', 'is_obj_visible'
       ]
   }
@@ -603,7 +606,7 @@ def setup_LMP(env: environment.Environment, cfg_tabletop):
   vision_variable_vars = {}
   vision_variable_vars['detect_object'] = LMP_env.detect_object
   vision_variable_vars['get_images'] = LMP_env.get_images
-#   vision_variable_vars['display_image'] = LMP_env.display_image # not yet implemented
+  vision_variable_vars['display_image'] = LMP_env.display_image
   vision_variable_vars['detect_grasp'] = LMP_env.detect_grasp
 
   # creating the vision LMP for object detection
@@ -642,13 +645,12 @@ lmp_tabletop_ui = setup_LMP(env, cfg_tabletop)
 print('available objects:')
 print(env.obj_list)
 
-user_input = 'Put the paper cup in the white bowl'
+user_input = 'Put the red block in the white bowl'
 
 # env.cache_video = []
 
 print('Running policy and recording video...')
 lmp_tabletop_ui(user_input, f'objects = {env.obj_list}')
-
 
 
 # # render video
