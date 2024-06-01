@@ -38,8 +38,18 @@ class RobotAgent:
             if function in prompts.function_docs:
                 functions_docs_str += f"{function}:\n{prompts.function_docs[function]}\n\n"
 
+        functions_advice_str = ''
+        for function in self._variable_vars.keys():
+            if function in prompts.functions_advice:
+                functions_advice_str += f"{function}:\n{prompts.functions_advice[function]}\n\n"
+
         top_system_message = self.top_system_message.replace('{functions_docs}', functions_docs_str)
         top_system_message = top_system_message.replace('{packages}', str(list(self._fixed_vars.keys())))
+        top_system_message = top_system_message.replace('{functions_advice}', functions_advice_str)
+        if self.prompt_examples:
+            top_system_message = top_system_message.replace('{few_shot_introduction}', prompts.few_shot_introduction)
+        else:
+            top_system_message = top_system_message.replace('{few_shot_introduction}', '')
 
         messages = [build_message(top_system_message, 'system')]
         for prompt in self.prompt_examples:
@@ -51,7 +61,9 @@ class RobotAgent:
                 else:
                     messages.append(build_message(message, 'system'))
 
-        messages.append(build_message(self.final_system_message, 'system'))
+        if self.prompt_examples:
+            messages.append(build_message(self.final_system_message, 'system'))
+
         messages.append(build_message(query, 'user'))
 
         print('Initial messages vision assistant')
@@ -71,7 +83,9 @@ class RobotAgent:
             rgb, _ = self._env.get_images(save=False)
             utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
             messages.append(build_message(prompts.gptv_injection_message, 'assistant'))
+            utils.log_completion(self._name, prompts.gptv_injection_message, config.latest_generation_logs_path)
             messages.append(build_image_message(config.image_to_display_in_message_path))
+            utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
         while not end:
 
@@ -81,7 +95,7 @@ class RobotAgent:
             utils.log_completion(self._name, completion, config.latest_generation_logs_path)
             messages.append(build_message(completion, 'assistant'))
 
-            sections = completion.split('**')
+            sections = completion.split('##')
             if len(sections) <= 1:
                 print('Incorrect format, implement error correction')
                 end = True
@@ -251,8 +265,8 @@ class EnvWrapper():
 
         return object_detection_utils.get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_array, camera_position, camera_orientation_q, config.intrinsics), masks
 
-    def get_images(self):
-        return self.env.get_images(save=True)
+    def get_images(self, save=True):
+        return self.env.get_images(save=save)
     
     def display_image(self, image_array):
         image_array = np.uint8(np.array(image_array))
@@ -317,14 +331,14 @@ cfg_agent= {
 
 
 def setup_agents(env: environment.Environment, cfg_agent):
-    # LMP env wrapper
+    # agent env wrapper
     cfg_agent = copy.deepcopy(cfg_agent)
     cfg_agent['env'] = dict()
     cfg_agent['env']['init_objs'] = list(env.obj_list)
     cfg_agent['env']['coords'] = config.sim_corner_pos if config.simulation else config.real_corner_pos
     cfg_agent['env']['coords']['table_z'] = config.sim_table_z if config.simulation else config.real_table_z
     agent_env = EnvWrapper(env, cfg_agent)
-    # creating APIs that the LMPs can interact with
+    # creating APIs that the agents can interact with
     fixed_vars = {
         'np': np,
         'shapely.affinity': shapely.affinity,
@@ -346,23 +360,23 @@ def setup_agents(env: environment.Environment, cfg_agent):
     vision_variable_vars['display_image'] = agent_env.display_image
     vision_variable_vars['detect_grasp'] = agent_env.detect_grasp
 
-    # creating the vision LMP for object detection
-    lmp_vision = vision_agent.setup_vision_agent(environment_vars=vision_variable_vars)
+    # creating the vision agent for object detection
+    vision_assistant = vision_agent.setup_vision_agent(environment_vars=vision_variable_vars)
 
-    variable_vars['vision_assistant'] = lmp_vision
+    variable_vars['vision_assistant'] = vision_assistant
 
     # creating the function-generating agent
     # fgen_agent = FGenAgent()
 
-    # creating the LMP that deals w/ high-level language commands
+    # creating the agent that deals w/ high-level language commands
     robot_agent = RobotAgent(
-        'tabletop_ui', cfg_agent['robot_agent'], fixed_vars, variable_vars, agent_env
+        'robot_agent', cfg_agent['robot_agent'], fixed_vars, variable_vars, agent_env
     )
 
     return robot_agent
 
 
-# setup env and LMP
+# setup env and agent
 if config.simulation:
   num_blocks = 3
   num_bowls = 3
@@ -375,7 +389,7 @@ robot_agent = setup_agents(env, cfg_agent)
 print('available objects:')
 print(env.obj_list)
 
-user_input = 'Put the red block in the white bowl'
+user_input = 'Put the red block in the red bowl'
 
 # env.cache_video = []
 

@@ -1,8 +1,8 @@
 top_system_message = '''
 You are a careful, experienced agent operating a robot in a real-world environment.
-Any code snippets after you mark the **CODE** tool will be sent to be executed on the robot, and you will receive back any printed stdout.
-Alternatively, you can end your message with the **VIEW_SCENE** tool to request to see an image of the scene. You must use use this only to verify the existence of objects, gain contextual information, or to verify progress.
-Once you have checked that the user's entire task is complete, you should give a final message ending with **COMPLETE**.
+Any code snippets after you mark the ##CODE## tool will be sent to be executed on the robot, and you will receive back any printed stdout.
+Alternatively, you can end your message with the ##VIEW_SCENE## tool to request to see an image of the scene. You must use use this only to verify the existence of objects, gain contextual information, or to verify progress.
+Once you have checked that the user's entire task is complete, you should give a final message ending with ##COMPLETE##.
 
 When solving a task, you should first outline the broad stages of the task. Then, when starting each stage of the task, remind yourself of the goal of the stage. Set youself expectations for the completion of this stage and make sure you achieve them before moving on.
 Verify progress by printing the output of various functions and displaying images.
@@ -28,7 +28,7 @@ What follows are some example interactions between you and the user. Please foll
 
 gptv_injection_message = '''
 Before outlining my broad objectives in order to complete the user's task, I should carefully check the current environment for any contextual information. I will use the VIEW_SCENE tool to request an image of the scene.
-**VIEW_SCENE**
+##VIEW_SCENE##
 '''.strip()
 
 functions_advice = {

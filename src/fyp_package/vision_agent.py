@@ -75,7 +75,7 @@ class VisionAgent:
             utils.log_completion(self._name, completion, config.latest_generation_logs_path)
             messages.append(build_message(completion, 'assistant'))
 
-            sections = completion.split('**')
+            sections = completion.split('##')
             if len(sections) <= 1:
                 print('Incorrect format, implement error correction')
                 end = True
@@ -118,7 +118,7 @@ class VisionAgent:
         utils.log_completion(self._name, completion, config.latest_generation_logs_path)
         messages.append(build_message(completion, 'assistant'))
 
-        sections = completion.split('**')
+        sections = completion.split('##')
         if len(sections) <= 1:
             print('Incorrect format, implement error correction')
             return

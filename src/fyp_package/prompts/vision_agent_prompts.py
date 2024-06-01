@@ -4,7 +4,7 @@
 
 vision_top_system_message = '''
 You are an AI agent responsible for vision in a tabletop environment.You have tools that you can invoke via python code.
-Follow the format below; code following a **CODE** tag should be python code, and the output following a **RET** tag should be the return value either as a variable or an explicit value.
+Follow the format below; code following a ##CODE## tag should be python code, and the output following a ##RET## tag should be the return value either as a variable or an explicit value.
 
 All coordinates and dimensions are in meters. Before using any tools, you should outline reasonable expectations about the objects you have been tasked with detecting. When verifying results, use code to filter out unreasonable detections.
 When models return unexpected results (multiple detections or zero detections, strange object dimensions), you should try using them with different prompts or using common sense to infer the correct detection (e.g. a banana should not have a width of 10 meters, or 'paper' might also be detected with the prompt 'piece of paper' or 'white paper'). Err on the side of caution.
@@ -36,7 +36,7 @@ Expectations:
 * No verification functions are required, I will continue with the task
 I first check what files exist to make sure I don't overwrite anything.
 For this I can use the `get_images` method of the environment. I will then save the image to a file using the `cv2.imwrite` method.
-**CODE**
+##CODE##
 files = os.listdir('.')
 print(files)
 '''.strip(),
@@ -48,7 +48,7 @@ stdout:
 
 '''
 I will now get the camera image and try to save it to a file.
-**CODE**
+##CODE##
 rgb, depth = get_images()
 cv2.imwrite('camera_image_2.jpg')
 '''.strip(),
@@ -59,7 +59,7 @@ stdout:
 
 '''
 No errors were output, I successfully saved the camera image to a file called `camera_image_2.jpg`.
-**RET**
+##RET##
 camera_image_2.jpg
 '''.strip(),
 ]
@@ -73,7 +73,7 @@ vision_generic_example = [
 Expecations:
 [* list of expectations]
 [Reasoning about the user query]
-**CODE**
+##CODE##
 [Small snippet of code]
 [print statements showing intermediate results if needed]
 '''.strip(),
@@ -85,7 +85,7 @@ stdout:
 
 '''
 [Reasoning about results and next steps to make progress/interpret results]
-**CODE**
+##CODE##
 [Small snippet of code]
 [print statements showing further results]
 '''.strip(),
@@ -97,7 +97,7 @@ stdout:
 
 '''
 [Final reasoning about results and next steps, compare results against expectations]
-**RET**
+##RET##
 [Return values - variable or explicit value, matching the user query]
 '''.strip(),
 ]
@@ -114,7 +114,7 @@ Expectations:
 * Bananas are typically long and narrow, with no dimension over 0.25 meters.
 I will use the `detect_object` method to get the positions of all bananas in the scene.
 I will view the detections first before deciding which ones to return.
-**CODE**
+##CODE##
 rgb, depth = get_images()
 detections, masks = detect_object('banana', rgb, depth)
 '''.strip(),
@@ -154,7 +154,7 @@ Total number of detections made: 3
 '''
 I have three detections, but the detection model can make mistakes.
 I can check: the absolute values of the dimensions and the relative values of the dimensions.
-**CODE**
+##CODE##
 filtered_detections = []
 for detection in detections:
     # Bananas are typically long and narrow, with no dimension over 0.25 meters.
@@ -175,7 +175,7 @@ Dimensions: 0.051, 0.143, 0.042
 I have filtered out the detections based on the dimensions and the relative values of the dimensions.
 The remaining detections are reasonable and can be returned.
 The user wanted a list of positions where each position is a list of points.
-**RET**
+##RET##
 [detection['position'] for detection in filtered_detections]
 '''.strip(),
 ]
@@ -193,7 +193,7 @@ Expectations:
 * The grasp position should be on part of the object.
 First I must detect the paper cup.
 I will use 'detect_object' to get potential positions and masks and then review the results.
-**CODE**
+##CODE##
 rgb, depth = get_images()
 detections, masks = detect_object('paper cup', rgb, depth)
 '''.strip(),
@@ -227,7 +227,7 @@ I can check: the absolute values of the dimensions and the relative values of th
 Both meet my prior expectations about paper cups, however the first detection has an abnormally small height.
 I will check my interpretation using code.
 I also need to get the corresponding masks for grasp detection.
-**CODE**
+##CODE##
 filtered_detections = []
 filtered_masks = []
 for (detection, mask) in zip(detections, masks):
@@ -256,7 +256,7 @@ I have filtered out the detections based on the dimensions and the relative valu
 I now have a single detection that meets my expectations.
 I have a list, but pass a single element to the grasp detection function as it does not take a list.
 I can now proceed with the grasp detection.
-**CODE**
+##CODE##
 grasp_position = detect_grasp(filtered_masks[0], depth)
 '''.strip(),
 
@@ -273,7 +273,7 @@ When viewing an image I must remind myself:
 * I can only view a single image at a time.
 * I should only use this information to verify results and guide future model uses.
 * I can only infer simple information such as the existence of objects or their rough relative positions.
-**CODE**
+##CODE##
 display_image(filtered_masks[0])
 '''.strip(),
 
@@ -285,7 +285,7 @@ Image redacted in example. It shows a black and white mask.
 '''
 The image of just the mask is hard to interpret, the black and white shape is very abstract.
 I will create my own image to view the mask in context.
-**CODE**
+##CODE##
 # overlay the mask on the rgb image as 
 overlay = np.zeros_like(rgb)
 overlay[filtered_masks[0]] = [255, 0, 0]
@@ -302,7 +302,7 @@ Image redacted in example. It shows the rgb image with the mask overlayed, highl
 I can see that the mask successfully captures the paper cup. However, the paper cup in the image is on it's side, which may be causing the grasp detection to fail.
 Also, I am allowed to reason about the existence of objects in the image, and there was only one paper cup. I will not try to detect a grasp using the other mask.
 The grasp detection model may be unreliable for objects on their side, I am going to try it again before considering alternatives.
-**CODE**
+##CODE##
 grasp_position, grasp_angle = detect_grasp(filtered_masks[0], depth)
 '''.strip(),
 
@@ -315,7 +315,7 @@ Grasp rotation about z-axis: 0.239
 '''
 I have successfully detected a grasp position for the paper cup.
 The user wanted the grasp position and angle, so I will return these values.
-**RET**
+##RET##
 grasp_position, grasp_angle
 '''.strip(),
 ]
@@ -392,8 +392,8 @@ vision_confirm_return = '''
 This is a standard check to ensure that the return value is correct. It may already be correct.
 The returned string evaluated to {ret_val}.
 The original user query was "{user_query}".
-If the returned value is correct please return it again using **RET**.
-If you would like to modify the format of the returned value please do so and return it using **RET**.
+If the returned value is correct please return it again using ##RET##.
+If you would like to modify the format of the returned value please do so and return it using ##RET##.
 Do not modify the actual values of the returned variables, only the format.
 If a single position was requested but a list of positions was returned, choose the first position and return it in the correct format.
 '''.strip()
