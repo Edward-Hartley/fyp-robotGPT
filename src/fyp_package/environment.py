@@ -112,8 +112,7 @@ class PhysicalEnvironment(Environment):
         if place_pos.shape[-1] == 2:
             place_xyz = np.append(place_pos, 0.15)
         else:
-            place_xyz = place_pos
-            place_xyz[2] = 0.15
+            place_xyz = np.float32([place_pos[0], place_pos[1], place_pos[2] + 0.03])
 
         # Move to object.
         ee_xyz = self.get_ee_pose()[0]
