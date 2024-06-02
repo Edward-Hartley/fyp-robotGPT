@@ -276,10 +276,14 @@ class PickPlaceEnv():
       orientation = pybullet.getQuaternionFromEuler(self.home_ee_euler)
 
     ee_xyz, ee_quat = self.get_ee_pose()
-    while np.linalg.norm(position - ee_xyz) > 0.01 or np.linalg.norm(orientation - ee_quat) > 0.05:
+    count = 0
+    while np.linalg.norm(position - ee_xyz) > 0.01 or (np.linalg.norm(orientation - ee_quat) > 0.05 and np.linalg.norm(orientation - ee_quat) < 1.95):
       self.movep(position, orientation)
       self.step_sim_and_render()
       ee_xyz, ee_quat = self.get_ee_pose()
+      count += 1
+      if count > 2000:
+        break
 
   def step(self, action=None):
     """Do pick and place motion primitive."""

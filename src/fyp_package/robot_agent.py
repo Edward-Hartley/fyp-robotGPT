@@ -22,6 +22,8 @@ class RobotAgent:
         self.final_system_message = self._cfg['final_system_message']
         self.check_completion_message = self._cfg['check_completion_message']
 
+        self._vision_enabled = self._cfg['vision_enabled']
+
         self._fixed_vars = fixed_vars
         self._variable_vars = variable_vars
 
@@ -70,9 +72,15 @@ class RobotAgent:
         print(messages[-1])
         utils.log_completion(self._name, messages[-1], config.latest_generation_logs_path)
 
-        # utils.print_openai_messages(messages[0])
+        # utils.print_openai_messages(messages)
 
         return messages
+    
+    def build_image_message_if_able(self, image_path, text=None):
+        if self._vision_enabled:
+            return build_image_message(image_path, text=text)
+        else:
+            return build_message('Vision is disabled, please carry out any other checks you can and then continue with the user\'s task.', 'system')
 
     def __call__(self, query, **kwargs):
         end = False
@@ -84,7 +92,7 @@ class RobotAgent:
             utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
             messages.append(build_message(prompts.gptv_injection_message, 'assistant'))
             utils.log_completion(self._name, prompts.gptv_injection_message, config.latest_generation_logs_path)
-            messages.append(build_image_message(config.image_to_display_in_message_path))
+            messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path))
             utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
         while not end:
@@ -95,11 +103,14 @@ class RobotAgent:
             utils.log_completion(self._name, completion, config.latest_generation_logs_path)
             messages.append(build_message(completion, 'assistant'))
 
-            sections = completion.split('##')
+            sections = completion.split('$$')
             if len(sections) <= 1:
-                print('Incorrect format, implement error correction')
-                end = True
-                break
+                message = input('Please provide a correction for the tool use.\n')
+                if message == '':
+                    messages.append(build_message(prompts.missing_tool_use_correction, 'system'))                
+                else:
+                    messages.append(build_message(message, 'system'))
+                continue
 
 
             gvars = merge_dicts([self._fixed_vars, self._variable_vars])
@@ -122,7 +133,7 @@ class RobotAgent:
             messages.append(build_message(system_message, 'system'))
 
             if "display_image(" in code_str:
-                messages.append(build_image_message(config.image_to_display_in_message_path))
+                messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path))
                 utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
     def confirm_complete(self, messages, query, lvars):
@@ -130,7 +141,7 @@ class RobotAgent:
         utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
         # repeat user query and check for completion
         confirmation_message = self.check_completion_message.replace('{query}', query)
-        messages.append(build_image_message(config.image_to_display_in_message_path, text=confirmation_message))
+        messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path, text=confirmation_message))
         utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
         utils.log_completion(self._name, confirmation_message, config.latest_generation_logs_path)
 
@@ -240,7 +251,7 @@ class EnvWrapper():
     def put_first_on_second(self, pick_pos, place_pos, pick_angle=None):
         # put the source on top of target
         # place and place are x-y positions in robot base frame
-        self.env.put_first_on_second(pick_pos, place_pos, pick_angle)
+        return self.env.put_first_on_second(pick_pos, place_pos, pick_angle)
 
     def get_robot_pos(self):
         # return robot end-effector xyz position in robot base frame
@@ -320,8 +331,9 @@ cfg_agent= {
         'top_system_message': prompts.top_system_message,
         'final_system_message': prompts.final_system_message,
         'check_completion_message': prompts.check_completion_message,
-        'prompt_examples': [],
+        'prompt_examples': [prompts.all_modules_example],
         'model': config.default_openai_model,
+        'vision_enabled': False,
         'max_tokens': 512,
         'temperature': config.model_temperature,
         'stop': None,

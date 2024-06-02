@@ -49,8 +49,8 @@ class Environment(ABC):
 
 # For the physical robot and camera
 class PhysicalEnvironment(Environment):
-    def __init__(self):
-        super().__init__(config.real_object_list)
+    def __init__(self, object_list=config.real_object_list):
+        super().__init__(object_list)
         # Initialize your robot client and camera here
         self.robot = self.initialize_robot()
         self.reset_robot()
@@ -241,24 +241,49 @@ if __name__ == "__main__":
 
 
 
-    physical_env = PhysicalEnvironment()
+    # physical_env = PhysicalEnvironment()
     sim_env = SimulatedEnvironment(3, 3)
 
     rgb1, depth1 = sim_env.get_images(save=True)
-    rgb2, depth2 = physical_env.get_images(save=True)
+    # rgb2, depth2 = physical_env.get_images(save=True)
     import matplotlib.pyplot as plt
-    plt.imshow(rgb1)
-    plt.show()
-    plt.imshow(rgb2)
-    plt.show()
+    # plt.imshow(rgb1)
+    # plt.show()
+    # plt.imshow(rgb2)
+    # plt.show()
 
 
 
     # rgb, depth = env.get_images(save=True)
     print("sim:", sim_env.get_ee_pose())
-    print("physical:", physical_env.get_ee_pose())
+    # print("physical:", physical_env.get_ee_pose())
 
+    input("Press Enter to move to bowl")
     euler = [0, 0, 0]
+    red_block_pos = sim_env.sim.get_obj_pos('red block')
+    # add noise
+    red_block_pos = [red_block_pos[0] + 0.015, red_block_pos[1] + 0.01, red_block_pos[2]]
+
+    hover_pos = [red_block_pos[0], red_block_pos[1], red_block_pos[2] + 0.1]
+    print("Hover over red block: ", sim_env.move_robot(hover_pos, [0, 0, 0]))
+    print("Move to red block: ", sim_env.move_robot(red_block_pos, [0, 0, 0]))
+    print("Close gripper: ", sim_env.close_gripper())
+    print("Lift red block: ", sim_env.move_robot(hover_pos, [0, 0, 0]))
+    input("Press Enter to move to bowl")
+
+
+    red_bowl_pos = sim_env.sim.get_obj_pos('red bowl')
+    # add noise
+    red_bowl_pos = [red_bowl_pos[0] + 0.015, red_bowl_pos[1] + 0.01, red_bowl_pos[2]]
+
+    hover_bowl_pos = [red_bowl_pos[0], red_bowl_pos[1], red_bowl_pos[2] + 0.1]    
+    print("Hover over red bowl: ", sim_env.move_robot(hover_bowl_pos, [0, 0, 0]))
+    place_pos = [red_bowl_pos[0], red_bowl_pos[1], red_bowl_pos[2] + 0.05]
+    print("Move to red bowl: ", sim_env.move_robot(place_pos, [0, 0, 0]))
+    print("Open gripper: ", sim_env.open_gripper())
+    print("Return to hover: ", sim_env.move_robot(hover_bowl_pos, [0, 0, 0]))
+
+    input("Press Enter to reset robot")
 
     # relative = False test
     while euler != -1:
@@ -266,11 +291,11 @@ if __name__ == "__main__":
         sim_env.move_robot([0, -0.5, 0.2], euler)
         sim_env.move_robot([0, -0.5, 0.3], euler)
 
-        physical_env.move_robot([0, -0.3, 0.2], euler)
-        physical_env.move_robot([0, -0.3, 0.3], euler)
+        # physical_env.move_robot([0, -0.3, 0.2], euler)
+        # physical_env.move_robot([0, -0.3, 0.3], euler)
 
         print("sim:", sim_env.get_ee_pose()[1])
-        print("physical:", physical_env.get_ee_pose()[1])
+        # print("physical:", physical_env.get_ee_pose()[1])
 
         euler = eval(input("Enter euler angles: "))
     # relative = True test
@@ -280,11 +305,11 @@ if __name__ == "__main__":
         sim_env.move_robot([0, 0, -0.1], euler, relative=True)
         sim_env.move_robot([0, 0, 0.1], euler, relative=True)
 
-        physical_env.move_robot([0, 0, -0.1], euler, relative=True)
-        physical_env.move_robot([0, 0, 0.1], euler, relative=True)
+        # physical_env.move_robot([0, 0, -0.1], euler, relative=True)
+        # physical_env.move_robot([0, 0, 0.1], euler, relative=True)
 
         print("sim:", sim_env.get_ee_pose()[1])
-        print("physical:", physical_env.get_ee_pose()[1])
+        # print("physical:", physical_env.get_ee_pose()[1])
 
         euler = eval(input("Enter euler angles: "))
 

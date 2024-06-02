@@ -123,12 +123,21 @@ def build_image_tool_response(image_path, tool_call_id, detail="low", text=None)
 
 
 if __name__ == '__main__':
-    gpt = GptModel(model=config.default_openai_model)
+    gpt = GptModel(model=config.cheap_openai_model)
     messages = []
-    messages.append(build_image_message("./data/latest_rgb_image.png", text="This is the current scene."))
-    messages.append(build_image_message("./data/image_to_display_in_message.png", text="I attempted to make a segmentation mask for a paper cup. I then overlayed my attempted mask on the scene, making the pixels more red where the mask is True. Is this segmentation for the paper cup correct?"))
-    messages.append(build_message("No, the segmentation mask you created is not correct for the paper cup. The red overlay is primarily on the white bowl, not the paper cup. The paper cup is to the right of the bowl and is not covered by the red overlay. You need to adjust the mask to correctly cover the paper cup.", 'assistant'))
-    messages.append(build_image_message("./data/image_to_display_in_message_2.png", text="what about this one?"))
+
+    message = '''
+    Hello please can you just repeat the below text exactly, character for character, including any punctuation, capitalisation, and line breaks:
+    <text begin>
+    ##$$**
+
+
+
+    **$$##
+    <text end>
+'''
+
+    messages.append(build_message(message, "user"))
 
     completion = gpt.chat_completion(messages)
     print(completion)

@@ -74,7 +74,14 @@ class Robot:
             if result:
                 return unpack_pose(result)
             else:
-                return None
+                # return where it got stuck
+                # Sets global vars for current position and orientation of the robot
+                pose_client.getcurrentCartesianCommand(pose_client.prefix)
+                pose_mq, _, _ = pose_client.unitParser(poseUnitParserUnit, (list([0, 0, 0]) + list([0, 0, 0, 1])), True)
+
+                poses = [float(n) for n in pose_mq]
+                return poses[:3], poses[3:]
+            
         except rospy.ROSInterruptException:
             print("program interrupted before completion")
 
