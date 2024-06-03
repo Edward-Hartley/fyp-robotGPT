@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import time
 
-from fyp_package import config, robot_client, realsense_camera, pick_and_place_env, utils
+from fyp_package import config, robot_client, realsense_camera, pick_and_place_env, utils, agent_logging
 
 class Environment(ABC):
     def __init__(self, obj_list):
@@ -73,12 +73,15 @@ class PhysicalEnvironment(Environment):
         adjusted_euler = utils.rotate_euler_by_inverse_of_quat(euler, config.robot_vertical_orientation_q)
         return pos, adjusted_euler
 
+    @agent_logging.log_gripper_action
     def open_gripper(self):
         return self.robot.open_gripper()
 
+    @agent_logging.log_gripper_action
     def close_gripper(self):
         return self.robot.close_gripper()
 
+    @agent_logging.log_move_robot
     def move_robot(self, position=config.robot_ready_position, orientation_e=[0, 0, 0], relative=False):
         # can be actively set to None despite default value
         if orientation_e is None:
@@ -94,6 +97,7 @@ class PhysicalEnvironment(Environment):
 
     # pick orientation is a scalar representing the angle of rotation around the z-axis
     # it should be in the range [-pi/2, pi/2]
+    @agent_logging.log_put_first_on_second
     def put_first_on_second(self, pick_pos, place_pos, pick_angle=None):
         if pick_angle is None:
             pick_orientation = config.robot_vertical_orientation_q
@@ -186,16 +190,19 @@ class SimulatedEnvironment(Environment):
 
         return pos, adjusted_euler
 
+    @agent_logging.log_gripper_action
     def open_gripper(self):
         self.sim.gripper.release()
         for _ in range(240):
             self.sim.step_sim_and_render()
 
+    @agent_logging.log_gripper_action
     def close_gripper(self):
         self.sim.gripper.activate()
         for _ in range(240):
             self.sim.step_sim_and_render()
 
+    @agent_logging.log_move_robot
     def move_robot(self, position, orientation_e=[0, 0, 0], relative=False):
         # can be actively set to None despite default value
         if orientation_e is None:
@@ -213,6 +220,7 @@ class SimulatedEnvironment(Environment):
         self.sim.move_ee(position, orientation)
         return self.get_ee_pose()
 
+    @agent_logging.log_put_first_on_second
     def put_first_on_second(self, pick_pos, place_pos, pick_angle=None):
         self.sim.step(action={'pick': np.array(pick_pos), 'place': np.array(place_pos), 'pick_angle': pick_angle})
         return True
@@ -238,19 +246,23 @@ if __name__ == "__main__":
     # simulated_env = SimulatedEnvironment(3, 3)
     # simulated_env.move_robot([0, 0, 0])
     # simulated_env.open_gripper()
+    agent_logging.setup_logging()
 
 
 
-    # physical_env = PhysicalEnvironment()
-    sim_env = SimulatedEnvironment(3, 3)
+    physical_env = PhysicalEnvironment()
+    physical_env.move_robot([-0.206, -0.293, 0.136])
+    input("Press Enter to move to bowl")
+    # sim_env = SimulatedEnvironment(3, 3)
 
-    rgb1, depth1 = sim_env.get_images(save=True)
+    # rgb1, depth1 = sim_env.get_images(save=True)
     # rgb2, depth2 = physical_env.get_images(save=True)
     import matplotlib.pyplot as plt
     # plt.imshow(rgb1)
     # plt.show()
     # plt.imshow(rgb2)
     # plt.show()
+    sim_env=4
 
 
 

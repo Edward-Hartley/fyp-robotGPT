@@ -11,7 +11,7 @@ def detect_grasp(mask, depth):
         np.save(depth_path, depth)
         np.save(mask_path, mask)
 
-        grasp2cam_tf, _score, contact_point_cam = models.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
+        grasp2cam_tf, _score, contact_point_cam = models.graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
 
         contact_point = config.cam2base_tf @ np.concatenate([contact_point_cam, [1]])

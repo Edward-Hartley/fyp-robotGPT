@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 # imported just for agent to use
 import shapely.geometry, shapely.affinity
 
-from fyp_package import config, object_detection_utils, utils, model_client, environment, vision_agent, gpt_model, test_configurations
+from fyp_package import config, object_detection_utils, utils, model_client, environment, vision_agent, gpt_model, test_configurations, agent_logging
 import fyp_package.prompts.robot_agent_prompts as prompts
 import fyp_package.prompts.vision_agent_prompts as vision_prompts
 from fyp_package.gpt_model import build_message, build_image_message
@@ -31,10 +31,18 @@ class RobotAgent:
             model=self._cfg['model'],
             stop=config.stop,
             temperature=config.model_temperature,
-            max_tokens=config.max_tokens
+            max_tokens=config.max_tokens,
+            name=self._name,
             )
 
+        self.messages = []
+
+    def add_message(self, message, generated=False):
+        agent_logging.log_message(self._name, message, generated)
+        self.messages.append(message)
+
     def build_initial_messages(self, query):
+        self.messages = []
         functions_docs_str=''
         for function in self._variable_vars.keys():
             if function in prompts.function_docs:
@@ -53,28 +61,28 @@ class RobotAgent:
         else:
             top_system_message = top_system_message.replace('{few_shot_introduction}', '')
 
-        messages = [build_message(top_system_message, 'system')]
+        self.add_message(build_message(top_system_message, 'system'))
         for prompt in self.prompt_examples:
             for i, message in enumerate(prompt):
                 if i == 0:
-                    messages.append(build_message(message, 'user'))
+                    self.add_message(build_message(message, 'user'))
                 elif i % 2 == 1:
-                    messages.append(build_message(message, 'assistant'))
+                    self.add_message(build_message(message, 'assistant'))
                 else:
-                    messages.append(build_message(message, 'system'))
+                    self.add_message(build_message(message, 'system'))
 
         if self.prompt_examples:
-            messages.append(build_message(self.final_system_message, 'system'))
+            self.add_message(build_message(self.final_system_message, 'system'))
 
-        messages.append(build_message(query, 'user'))
+        self.add_message(build_message(query, 'user'))
 
-        print('Initial messages vision assistant')
-        print(messages[-1])
-        utils.log_completion(self._name, messages[-1], config.latest_generation_logs_path)
+        print('Initial self.messages vision assistant')
+        print(self.messages[-1])
+        utils.log_completion(self._name, self.messages[-1], config.latest_generation_logs_path)
 
-        # utils.print_openai_messages(messages)
+        # utils.print_openai_messages(self.messages)
 
-        return messages
+        return self.messages
     
     def build_image_message_if_able(self, image_path, text=None):
         if self._vision_enabled:
@@ -84,7 +92,7 @@ class RobotAgent:
 
     def __call__(self, query, **kwargs):
         end = False
-        messages = self.build_initial_messages(query)
+        self.build_initial_messages(query)
         gvars = merge_dicts([self._fixed_vars, self._variable_vars])
         gvars.update(kwargs)
         empty_fn = lambda *args, **kwargs: None
@@ -94,31 +102,31 @@ class RobotAgent:
         if self._cfg['include_gptv_context']:
             rgb, _ = self._env.get_images(save=False)
             utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
-            messages.append(build_message(prompts.gptv_injection_message, 'assistant'))
+            self.add_message(build_message(prompts.gptv_injection_message, 'assistant'))
             utils.log_completion(self._name, prompts.gptv_injection_message, config.latest_generation_logs_path)
-            messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path))
+            self.add_message(self.build_image_message_if_able(config.image_to_display_in_message_path))
             utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
         while not end:
 
-            completion = self.gpt_model.chat_completion(messages)
+            completion = self.gpt_model.chat_completion(self.messages)
 
             print(f'Completion: {completion}')
             utils.log_completion(self._name, completion, config.latest_generation_logs_path)
-            messages.append(build_message(completion, 'assistant'))
+            self.add_message(build_message(completion, 'assistant'), generated=True)
 
             sections = completion.split('$$')
             if len(sections) <= 1:
                 message = input('Please provide a correction for the tool use.\n')
                 if message == '':
-                    messages.append(build_message(prompts.missing_tool_use_correction, 'system'))                
+                    self.add_message(build_message(prompts.missing_tool_use_correction, 'system'))                
                 else:
-                    messages.append(build_message(message, 'system'))
+                    self.add_message(build_message(message, 'system'))
                 continue
 
 
             if sections[1] == 'COMPLETE':
-                end = self.confirm_complete(messages, query)
+                end = self.confirm_complete(query)
                 if end:
                     break
 
@@ -130,24 +138,24 @@ class RobotAgent:
             print(system_message)
             utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
-            messages.append(build_message(system_message, 'system'))
+            self.add_message(build_message(system_message, 'system'))
 
             if "display_image(" in code_str:
-                messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path))
+                self.add_message(self.build_image_message_if_able(config.image_to_display_in_message_path))
                 utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
-    def confirm_complete(self, messages, query):
+    def confirm_complete(self, query):
         rgb, _ = self._env.get_images(save=False)
         utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
         # repeat user query and check for completion
         confirmation_message = self.check_completion_message.replace('{query}', query)
-        messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path, text=confirmation_message))
+        self.add_message(self.build_image_message_if_able(config.image_to_display_in_message_path, text=confirmation_message))
         utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
         utils.log_completion(self._name, confirmation_message, config.latest_generation_logs_path)
 
-        completion = self.gpt_model.chat_completion(messages)
+        completion = self.gpt_model.chat_completion(self.messages)
 
-        messages.append(build_message(completion, 'assistant'))
+        self.add_message(build_message(completion, 'assistant'), generated=True)
         utils.log_completion(self._name, completion, config.latest_generation_logs_path)
         
         if 'COMPLETE' in completion:
@@ -291,7 +299,7 @@ class EnvWrapper():
         np.save(depth_path, depth)
         np.save(mask_path, mask)
 
-        result = self.model_client.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
+        result = self.model_client.graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         if result is None:
             print("No grasp detected. Returned None, None.")
             return None
@@ -359,7 +367,7 @@ def setup_agents(env: environment.Environment, cfg_agents, vision_assistant=True
 
     return robot_agent
 
-_default_user_input = 'Pick up the red block and place it on the bowl nearest to it.'
+_default_user_input = 'Move the red block into the red bowl.'
 
 def run_agent(
         cfg_agents,
@@ -382,6 +390,23 @@ def run_agent(
     robot_agent(user_input)
 
 if __name__ == '__main__':
-    cfg_agents = test_configurations.no_gptv_context
+    agent_logging.setup_logging()
+    test_name = 'all_features'
+    cfg_agents = test_configurations.all_features
+
+    user_query = 'Move the green mug to the right slightly.'
+
+
+    full_configuration = {
+        'test_name': test_name,
+        'user_query': user_query,
+        'cfg_agents': cfg_agents,
+        'simulation': config.simulation,
+        'model_temperature': config.model_temperature,
+        'max_tokens': config.max_tokens,
+        'stop': config.stop,
+    }
     
-    run_agent(cfg_agents)
+    agent_logging.log_configuration(full_configuration, test_name)
+    
+    run_agent(cfg_agents, user_query)

@@ -450,7 +450,7 @@ class LMP_wrapper():
         np.save(depth_path, depth)
         np.save(mask_path, mask)
 
-        result = self.model_client.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
+        result = self.model_client.graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         if result is None:
             print("No grasp detected. Returned None, None.")
             return None

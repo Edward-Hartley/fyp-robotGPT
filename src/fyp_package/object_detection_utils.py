@@ -1,10 +1,11 @@
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
-from fyp_package import config
+from fyp_package import config, agent_logging
 from fyp_package.utils import tf
 from shapely.geometry import MultiPoint, Polygon, polygon
 
+@agent_logging.log_object_cube_calculations
 def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_array, camera_position, camera_orientation_q, camera_intrinsics):
 
     cubes_coords, cubes_orients = get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q, camera_intrinsics)
@@ -110,7 +111,11 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
             step = 20
 
         if contour is None:
-            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_width-1, step) for c in range(0, image_height-1, step) if mask[r][c] and depth_array[r][c] not in config.invalid_depth_values]
+            if config.simulation == False:
+                conservative_mask = erode_mask(mask, 20)
+            else:
+                conservative_mask = erode_mask(mask, 5)
+            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_width-1, step) for c in range(0, image_height-1, step) if conservative_mask[r][c] and depth_array[r][c] not in config.invalid_depth_values]
         else:
             contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
         contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
@@ -179,3 +184,34 @@ def get_world_points_world_frame(camera_position, camera_orientation_q, camera_K
 
     return points[:, :3]
 
+def erode_mask(mask, erosion_size):
+    kernel = np.ones((erosion_size, erosion_size), np.uint8)
+    return cv.erode(mask.astype(np.uint8), kernel, iterations=1).astype(bool)
+
+
+if __name__ == '__main__':
+    masks = np.load(config.latest_segmentation_masks_path)
+    phrases = ["paper cup"] * len(masks)
+
+    plt.imshow(masks[0])
+    plt.show()
+    plt.imshow(erode_mask(masks[0], 20))
+    plt.show()
+
+    depth_array = np.load(config.latest_depth_image_path)
+
+    plt.imshow(depth_array)
+    plt.show()
+
+    # plot mask over depth image
+    plt.imshow(depth_array)
+    plt.imshow(masks[0], alpha=0.5)
+    plt.show()
+
+    # plot eroded mask over depth image
+    plt.imshow(depth_array)
+    plt.imshow(erode_mask(masks[0], 20), alpha=0.5)
+    plt.show()
+
+    results = get_object_cube_from_segmentation(masks, phrases, cv.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
+    print(results)

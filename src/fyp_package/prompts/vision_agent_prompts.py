@@ -23,6 +23,7 @@ Take special care to ensure the returned value is wrapped in the correct way - i
 vision_advice = '''
 When this does not work, you can try viewing an image of the environment yourself to gain contextual information. You can only use this information to verify results and guide future model uses. You may use code to create your own images to view, and then use display_image to view them.
 You can only view a single image at a time.
+When your task is very open-ended, you must use the `display_image` function at the start to view the environment and make a plan.
 '''.strip()
 
 few_shot_introduction = '''

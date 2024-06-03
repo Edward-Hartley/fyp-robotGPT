@@ -147,3 +147,9 @@ model_temperature = 0.0
 max_tokens = 512
 stop=None
 completions_compatible_openai_model = "gpt-3.5-turbo-instruct"
+
+#### Logging
+
+run_id_file_path = "./results/run_id.txt"
+log_directory_path = "./results/log_{run_id}/"
+log_file_path = "./results/log_{run_id}/logs.txt"

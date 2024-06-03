@@ -5,6 +5,7 @@ import pickle
 import cv2
 import os
 import ast
+import matplotlib.pyplot as plt
 
 
 # as defined in proto.py but using math for trigonometric functions
@@ -252,8 +253,8 @@ def log_viewed_image(path, log_directory):
     os.makedirs(log_directory, exist_ok=True)
     existing_files = os.listdir(log_directory)
     if len(existing_files) > 0:
-        last_file = sorted(existing_files)[-1]
-        last_num = int(last_file.split('_')[-1].split('.')[0])
+        file_nums = [int(file.split('_')[-1].split('.')[0]) for file in existing_files]
+        last_num = max(file_nums)
     else:
         last_num = -1
 
@@ -262,26 +263,10 @@ def log_viewed_image(path, log_directory):
     # copy file across
     os.system(f"cp {path} {new_path}")
 
-def split_code(code):
-    tree = ast.parse(code)
-    definitions = []
-    rest = []
 
-    for node in tree.body:
-        if isinstance(node, ast.FunctionDef):
-            definitions.append(node)
-        elif isinstance(node, ast.Assign):
-            if any(isinstance(value, (ast.Call, ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp)) for value in ast.walk(node.value)):
-                rest.append(node)
-            else:
-                definitions.append(node)
-        else:
-            rest.append(node)
+def view_masks(path='./data/latest_segmentation_masks.npy'):
 
-    def unparse(nodes):
-        return "\n".join([ast.unparse(node) for node in nodes])
-
-    definitions_code = unparse(definitions)
-    rest_code = unparse(rest)
-
-    return definitions_code, rest_code
+    masks = np.load(path, allow_pickle=True)
+    for mask in masks:
+        plt.imshow(mask)
+        plt.show()

@@ -1,7 +1,7 @@
 # %%
 from io import StringIO
 from contextlib import redirect_stdout
-from fyp_package import config, utils, gpt_model
+from fyp_package import config, utils, gpt_model, agent_logging
 from fyp_package.gpt_model import build_message, build_image_message
 from fyp_package.prompts.vision_agent_prompts import *
 
@@ -28,10 +28,18 @@ class VisionAgent:
             model=self._cfg['model'],
             stop=config.stop,
             temperature=config.model_temperature,
-            max_tokens=config.max_tokens
+            max_tokens=config.max_tokens,
+            name=self._name,
             )
+        
+        self.messages = []
+
+    def add_message(self, message, generated=False):
+        agent_logging.log_message(self._name, message, generated)
+        self.messages.append(message)
 
     def build_initial_messages(self, query):
+        self.messages = []
         functions_docs_str=''
         for function in self._variable_vars.keys():
             if function in vision_function_docs:
@@ -48,34 +56,34 @@ class VisionAgent:
             '{few_shot_introduction}',
             few_shot_introduction if self.prompt_examples != [] else '')
 
-        messages = [build_message(top_system_message, 'system')]
+        self.add_message(build_message(top_system_message, 'system'))
 
         for prompt in self.prompt_examples:
             for i, message in enumerate(prompt):
                 if i == 0:
-                    messages.append(build_message(message, 'user'))
+                    self.add_message(build_message(message, 'user'))
                 elif i % 2 == 1:
-                    messages.append(build_message(message, 'assistant'))
+                    self.add_message(build_message(message, 'assistant'))
                 else:
-                    messages.append(build_message(message, 'system'))
+                    self.add_message(build_message(message, 'system'))
 
         if self.prompt_examples != []:
-            messages.append(build_message(few_shot_conclusion, 'system'))
+            self.add_message(build_message(few_shot_conclusion, 'system'))
 
-        messages.append(build_message(query, 'user'))
+        self.add_message(build_message(query, 'user'))
 
         if DEBUG:
             print('Initial messages vision assistant')
-            print(messages[-1])
-        utils.log_completion(self._name, messages[-1], config.latest_generation_logs_path)
+            print(self.messages[-1])
+        utils.log_completion(self._name, self.messages[-1], config.latest_generation_logs_path)
 
         # utils.print_openai_messages(messages[0])
 
-        return messages
+        return self.messages
 
     def __call__(self, query, **kwargs):
         end = False
-        messages = self.build_initial_messages(query)
+        self.build_initial_messages(query)
         gvars = merge_dicts([self._fixed_vars, self._variable_vars])
         gvars.update(kwargs)
         empty_fn = lambda *args, **kwargs: None
@@ -87,12 +95,12 @@ class VisionAgent:
 
         while not end:
 
-            completion = self.gpt_model.chat_completion(messages)
+            completion = self.gpt_model.chat_completion(self.messages)
 
             if DEBUG:
                 print(f'Completion: {completion}')
             utils.log_completion(self._name, completion, config.latest_generation_logs_path)
-            messages.append(build_message(completion, 'assistant'))
+            self.add_message(build_message(completion, 'assistant'), generated=True)
 
             sections = completion.split('$$')
             if len(sections) <= 1:
@@ -107,7 +115,7 @@ class VisionAgent:
                 end = True
                 if DEBUG:
                     print("Returned value:", eval(code_str, gvars, lvars))
-                return self.confirm_return(messages, eval(code_str, gvars, lvars), query, gvars, lvars)
+                return self.confirm_return(eval(code_str, gvars, lvars), query, gvars, lvars)
 
             stdout = exec_safe(code_str, gvars, lvars)
 
@@ -116,25 +124,25 @@ class VisionAgent:
                 print(system_message)
             utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
-            messages.append(build_message(system_message, 'system'))
+            self.add_message(build_message(system_message, 'system'))
 
             if "display_image(" in code_str:
-                messages.append(build_image_message(config.image_to_display_in_message_path))
+                self.add_message(build_image_message(config.image_to_display_in_message_path))
                 utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
-    def confirm_return(self, messages, ret_val, query, gvars, lvars):
+    def confirm_return(self, ret_val, query, gvars, lvars):
         confirmation_message = (
             vision_confirm_return
             .replace('{ret_val}', str(ret_val))
             .replace('{user_query}', query)
         )
 
-        messages.append(build_message(confirmation_message, 'system'))
+        self.add_message(build_message(confirmation_message, 'system'))
         utils.log_completion(self._name, confirmation_message, config.latest_generation_logs_path)
-        completion = self.gpt_model.chat_completion(messages)
+        completion = self.gpt_model.chat_completion(self.messages)
 
         utils.log_completion(self._name, completion, config.latest_generation_logs_path)
-        messages.append(build_message(completion, 'assistant'))
+        self.add_message(build_message(completion, 'assistant'), generated=True)
 
         sections = completion.split('$$')
         if len(sections) <= 1:

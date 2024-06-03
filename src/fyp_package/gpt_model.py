@@ -5,7 +5,7 @@ from time import sleep
 import os
 import json
 import base64
-from fyp_package import config, utils
+from fyp_package import config, utils, agent_logging
 import base64
 
 def get_api_key():
@@ -20,7 +20,8 @@ class GptModel:
                  temperature=config.model_temperature,
                  max_tokens=1000,
                  stop=None,
-                 client=None
+                 client=None,
+                 name=None
                 ):
         if not client:
             self.client = OpenAI(api_key=get_api_key())
@@ -31,7 +32,10 @@ class GptModel:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.stop = stop
+        self.name = name
+        self.most_recent_usage = None
 
+    @agent_logging.log_chat_completion
     def chat_completion(self, messages, tool_choice="auto"):
 
         while True:
@@ -60,9 +64,10 @@ class GptModel:
         if self.stop is not None:
             kwargs['stop'] = self.stop
 
-        message = self.client.chat.completions.create(**kwargs).choices[0].message
+        completion = self.client.chat.completions.create(**kwargs)
+        self.most_recent_usage = completion.usage
 
-        return message.content.strip()
+        return completion.choices[0].message.content.strip()
     
 # encode image to base64
 # image path must point to either png or jpg file
@@ -123,7 +128,8 @@ def build_image_tool_response(image_path, tool_call_id, detail="low", text=None)
 
 
 if __name__ == '__main__':
-    gpt = GptModel(model=config.cheap_openai_model)
+    agent_logging.setup_logging()
+    gpt = GptModel(model=config.cheap_openai_model, name='test')
     messages = []
 
     message = '''
