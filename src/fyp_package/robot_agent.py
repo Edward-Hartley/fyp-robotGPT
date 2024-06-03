@@ -1,18 +1,18 @@
 import numpy as np
-import copy
 from io import StringIO
 from contextlib import redirect_stdout
 
 # imported just for agent to use
 import shapely.geometry, shapely.affinity
 
-from fyp_package import config, object_detection_utils, utils, model_client, environment, vision_agent, gpt_model
+from fyp_package import config, object_detection_utils, utils, model_client, environment, vision_agent, gpt_model, test_configurations
 import fyp_package.prompts.robot_agent_prompts as prompts
+import fyp_package.prompts.vision_agent_prompts as vision_prompts
 from fyp_package.gpt_model import build_message, build_image_message
 
 class RobotAgent:
 
-    def __init__(self, name, cfg, fixed_vars, variable_vars, agent_env):
+    def __init__(self, name, cfg, fixed_vars, top_variable_vars, agent_env):
         self._name = name
         self._cfg = cfg
         self._env = agent_env
@@ -25,13 +25,13 @@ class RobotAgent:
         self._vision_enabled = self._cfg['vision_enabled']
 
         self._fixed_vars = fixed_vars
-        self._variable_vars = variable_vars
+        self._variable_vars = top_variable_vars
 
         self.gpt_model = gpt_model.GptModel(
             model=self._cfg['model'],
-            stop=self._cfg['stop'],
-            temperature=self._cfg['temperature'],
-            max_tokens=self._cfg['max_tokens']
+            stop=config.stop,
+            temperature=config.model_temperature,
+            max_tokens=config.max_tokens
             )
 
     def build_initial_messages(self, query):
@@ -85,7 +85,11 @@ class RobotAgent:
     def __call__(self, query, **kwargs):
         end = False
         messages = self.build_initial_messages(query)
-        lvars = kwargs
+        gvars = merge_dicts([self._fixed_vars, self._variable_vars])
+        gvars.update(kwargs)
+        empty_fn = lambda *args, **kwargs: None
+        gvars.update({'exec': empty_fn, 'eval': empty_fn})
+        lvars=None
 
         if self._cfg['include_gptv_context']:
             rgb, _ = self._env.get_images(save=False)
@@ -113,18 +117,14 @@ class RobotAgent:
                 continue
 
 
-            gvars = merge_dicts([self._fixed_vars, self._variable_vars])
-
             if sections[1] == 'COMPLETE':
-                end = self.confirm_complete(messages, query, lvars)
+                end = self.confirm_complete(messages, query)
                 if end:
                     break
 
             code_str = sections[2]
 
             stdout = exec_safe(code_str, gvars, lvars)
-
-            self._variable_vars.update(lvars)
 
             system_message = f'stdout: \n{stdout}'
             print(system_message)
@@ -136,7 +136,7 @@ class RobotAgent:
                 messages.append(self.build_image_message_if_able(config.image_to_display_in_message_path))
                 utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
-    def confirm_complete(self, messages, query, lvars):
+    def confirm_complete(self, messages, query):
         rgb, _ = self._env.get_images(save=False)
         utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
         # repeat user query and check for completion
@@ -171,32 +171,27 @@ def exec_safe(code_str, gvars=None, lvars=None):
         gvars = {}
     if lvars is None:
         lvars = {}
-    empty_fn = lambda *args, **kwargs: None
-    custom_gvars = merge_dicts([
-        gvars,
-        {'exec': empty_fn, 'eval': empty_fn}
-    ])
+
 
     out = StringIO()
     with redirect_stdout(out):
-        exec(code_str, custom_gvars, lvars)
+        exec(code_str, gvars, None)
 
     return out.getvalue()
 
 
 class EnvWrapper():
 
-    def __init__(self, env: environment.Environment, cfg, render=False):
+    def __init__(self, env: environment.Environment, env_cfg):
         self.env = env
-        self._cfg = cfg
-        self.object_names = list(self._cfg['env']['init_objs'])
+        self._cfg = env_cfg
+        self.object_names = list(self._cfg['init_objs'])
 
-        self._min_xy = np.array(self._cfg['env']['coords']['bottom left corner'][0:2])
-        self._max_xy = np.array(self._cfg['env']['coords']['top right corner'][0:2])
+        self._min_xy = np.array(self._cfg['coords']['bottom left corner'][0:2])
+        self._max_xy = np.array(self._cfg['coords']['top right corner'][0:2])
         self._range_xy = self._max_xy - self._min_xy
 
-        self._table_z = self._cfg['env']['coords']['table_z']
-        self.render = render
+        self._table_z = self._cfg['coords']['table_z']
 
         self.model_client = model_client.ModelClient()
 
@@ -325,93 +320,68 @@ class EnvWrapper():
 
         return contact_point, grasp_z_rot # , grasp_position, grasp_orientation
 
-
-cfg_agent= {
-    'robot_agent': {
-        'top_system_message': prompts.top_system_message,
-        'final_system_message': prompts.final_system_message,
-        'check_completion_message': prompts.check_completion_message,
-        'prompt_examples': [prompts.all_modules_example],
-        'model': config.default_openai_model,
-        'vision_enabled': False,
-        'max_tokens': 512,
-        'temperature': config.model_temperature,
-        'stop': None,
-        'include_gptv_context': True,
-    },
-}
-
-
-def setup_agents(env: environment.Environment, cfg_agent):
+def setup_agents(env: environment.Environment, cfg_agents, vision_assistant=True):
     # agent env wrapper
-    cfg_agent = copy.deepcopy(cfg_agent)
-    cfg_agent['env'] = dict()
-    cfg_agent['env']['init_objs'] = list(env.obj_list)
-    cfg_agent['env']['coords'] = config.sim_corner_pos if config.simulation else config.real_corner_pos
-    cfg_agent['env']['coords']['table_z'] = config.sim_table_z if config.simulation else config.real_table_z
-    agent_env = EnvWrapper(env, cfg_agent)
+    env_cfg = dict()
+    env_cfg['init_objs'] = list(env.obj_list)
+    env_cfg['coords'] = config.sim_corner_pos if config.simulation else config.real_corner_pos
+    env_cfg['coords']['table_z'] = config.sim_table_z if config.simulation else config.real_table_z
+    agent_env = EnvWrapper(env, env_cfg)
     # creating APIs that the agents can interact with
     fixed_vars = {
         'np': np,
         'shapely.affinity': shapely.affinity,
         'shapely.geometry': shapely.geometry,
     }
-    variable_vars = {
+    top_variable_vars = {
         k: getattr(agent_env, k)
-        for k in [
-            'denormalize_xy',
-            'put_first_on_second', 'get_obj_names',
-            'get_corner_name', 'get_side_name',
-            'move_robot', 'move_robot_relative', 'open_gripper', 'close_gripper',
-        ]
+        for k in cfg_agents['robot_agent']['functions']
     }
 
-    vision_variable_vars = {}
-    vision_variable_vars['detect_object'] = agent_env.detect_object
-    vision_variable_vars['get_images'] = agent_env.get_images
-    vision_variable_vars['display_image'] = agent_env.display_image
-    vision_variable_vars['detect_grasp'] = agent_env.detect_grasp
+    if vision_assistant:
+        vision_variable_vars = {
+            k: getattr(agent_env, k)
+            for k in cfg_agents['vision_assistant']['functions']
+        }
 
-    # creating the vision agent for object detection
-    vision_assistant = vision_agent.setup_vision_agent(environment_vars=vision_variable_vars)
+        # creating the vision agent for object detection
+        vision_assistant = vision_agent.setup_vision_agent(cfg_agents['vision_assistant'], environment_vars=vision_variable_vars)
 
-    variable_vars['vision_assistant'] = vision_assistant
+        top_variable_vars['vision_assistant'] = vision_assistant
 
     # creating the function-generating agent
     # fgen_agent = FGenAgent()
 
     # creating the agent that deals w/ high-level language commands
     robot_agent = RobotAgent(
-        'robot_agent', cfg_agent['robot_agent'], fixed_vars, variable_vars, agent_env
+        'robot_agent', cfg_agents['robot_agent'], fixed_vars, top_variable_vars, agent_env
     )
 
     return robot_agent
 
+_default_user_input = 'Pick up the red block and place it on the bowl nearest to it.'
 
-# setup env and agent
-if config.simulation:
-  num_blocks = 3
-  num_bowls = 3
+def run_agent(
+        cfg_agents,
+        user_input=_default_user_input,
+        ):
 
-  env = environment.SimulatedEnvironment(num_blocks, num_bowls)
-else:
-  env = environment.PhysicalEnvironment()
-robot_agent = setup_agents(env, cfg_agent)
+    # setup env and agent
+    if config.simulation:
+        num_blocks = 3
+        num_bowls = 3
 
-print('available objects:')
-print(env.obj_list)
+        env = environment.SimulatedEnvironment(num_blocks, num_bowls)
+    else:
+        env = environment.PhysicalEnvironment()
 
-user_input = 'Put the red block in the red bowl'
+    vision_assistant = 'vision_assistant' in cfg_agents
 
-# env.cache_video = []
+    robot_agent = setup_agents(env, cfg_agents, vision_assistant=vision_assistant)
 
-print('Running policy and recording video...')
-robot_agent(user_input)
+    robot_agent(user_input)
 
-
-# # render video
-# if env.cache_video:
-#   from moviepy.editor import ImageSequenceClip
-
-#   rendered_clip = ImageSequenceClip(env.cache_video, fps=35 if high_frame_rate else 25)
-#   rendered_clip.write_gif("robot_clip.gif")
+if __name__ == '__main__':
+    cfg_agents = test_configurations.no_gptv_context
+    
+    run_agent(cfg_agents)

@@ -15,9 +15,12 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
 
         print("Detection " + str(i + 1))
 
-        width = np.around(np.linalg.norm(cube_coords['bottom']['corners'][1] - cube_coords['bottom']['corners'][0]), 3)
-        length = np.around(np.linalg.norm(cube_coords['bottom']['corners'][2] - cube_coords['bottom']['corners'][1]), 3)
+        side_1 = np.around(np.linalg.norm(cube_coords['bottom']['corners'][1] - cube_coords['bottom']['corners'][0]), 3)
+        side_2 = np.around(np.linalg.norm(cube_coords['bottom']['corners'][2] - cube_coords['bottom']['corners'][1]), 3)
         height = np.around(np.linalg.norm(cube_coords['top']['corners'][0] - cube_coords['bottom']['corners'][0]), 3)
+
+        width = min(side_1, side_2)
+        length = max(side_1, side_2)
 
         print("Position of " + segmentation_texts[i] + ":", list(np.around(cube_coords['top']['center'], 3)))
         results[i]['position'] = list(np.around(cube_coords['top']['center'], 3))

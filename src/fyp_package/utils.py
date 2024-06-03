@@ -4,6 +4,8 @@ import math
 import pickle
 import cv2
 import os
+import ast
+
 
 # as defined in proto.py but using math for trigonometric functions
 def euler2quat(x, y, z):
@@ -259,3 +261,27 @@ def log_viewed_image(path, log_directory):
     new_path = os.path.join(log_directory, f"image_{new_num}.png")
     # copy file across
     os.system(f"cp {path} {new_path}")
+
+def split_code(code):
+    tree = ast.parse(code)
+    definitions = []
+    rest = []
+
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            definitions.append(node)
+        elif isinstance(node, ast.Assign):
+            if any(isinstance(value, (ast.Call, ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp)) for value in ast.walk(node.value)):
+                rest.append(node)
+            else:
+                definitions.append(node)
+        else:
+            rest.append(node)
+
+    def unparse(nodes):
+        return "\n".join([ast.unparse(node) for node in nodes])
+
+    definitions_code = unparse(definitions)
+    rest_code = unparse(rest)
+
+    return definitions_code, rest_code

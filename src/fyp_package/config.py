@@ -2,7 +2,7 @@ import numpy as np
 from fyp_package.utils import euler2quat, rot2quat, tf
 import os
 
-simulation = True
+simulation = False
 
 #### Camera
 
@@ -144,4 +144,6 @@ robot_server_port = 9999
 default_openai_model = "gpt-4o"
 cheap_openai_model = "gpt-3.5-turbo"
 model_temperature = 0.0
+max_tokens = 512
+stop=None
 completions_compatible_openai_model = "gpt-3.5-turbo-instruct"
