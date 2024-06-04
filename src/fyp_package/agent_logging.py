@@ -4,6 +4,7 @@ import os
 from fyp_package import config
 from functools import wraps
 import pickle
+import base64
 
 # Global run ID
 run_id = 0
@@ -180,6 +181,51 @@ def log_message(name, message, generated):
         timestamp
         )
     
+def pretty_message_logs(file, output_directory):
+    results = read_logged_results(file)
+    full_chat_string = ""
+    os.makedirs(output_directory, exist_ok=True)
+    image_folder = os.path.join(output_directory, 'images')
+    os.makedirs(image_folder, exist_ok=True)
+
+    for result in results:
+        timestamp = result['timestamp']
+        message = result['response']['message']
+        generated = result['response']['generated']
+
+        # content is either just text or one text content and one image content
+        if isinstance(message['content'], str):
+            full_chat_string += pretty_message_content(message['content'], message['role'], generated)
+        elif isinstance(message['content'], list):
+            image_filename = None
+            for content in message['content']:
+                if content['type'] == 'image_url':
+                    # "url": f"data:image/{image_type};base64,{base64_image}",
+                    image_url = content['image_url']['url']
+                    image_type = image_url.split(';')[0].split('/')[1]
+
+                    image_filename = os.path.join(image_folder, f"{timestamp}.{image_type}")
+
+                    with open(image_filename, 'wb') as f:
+                        f.write(base64.b64decode(image_url.split(',')[1]))
+
+                elif content['type'] == 'text':
+                    full_chat_string += pretty_message_content(content['text'], message['role'], generated)
+
+            full_chat_string += f"Image Filename: {image_filename}\n"
+
+    with open(os.path.join(output_directory, 'chat.txt'), 'w') as f:
+        f.write(full_chat_string)
+
+def pretty_message_content(content, role, generated):
+    out_string = "\n"
+    if generated:
+        out_string += "Generated ----\n"
+    # indent content
+    content = content.replace('\n', '\n    ')
+    out_string += f"{role}:\n    {content}\n"
+    return out_string
+
 
 #### object_detection_utils ####
 
@@ -220,3 +266,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+    pretty_message_logs('./results/log_1/robot_agent.pkl', './results/log_1/robot_agent_chat/')
+    pretty_message_logs('./results/log_1/vision_assistant.pkl', './results/log_1/vision_chat/')
+
