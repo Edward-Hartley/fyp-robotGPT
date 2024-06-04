@@ -256,9 +256,36 @@ def log_configuration(configuration, test_name):
         timestamp
         )
 
+#### log most recent test ####
+
+def log_final_notes():
+    verdict = input("Was the test successful? (y/n): ")
+    if verdict == 'forget it':
+        delete_last_run()
+        return
+    success = verdict.lower() == 'y'
+    notes = input("Enter any notes: ")
+    log_event('Test complete', f"Success: {success}, Notes: {notes}")
+
 
 def print_run_id():
     print(f"Current run ID: {run_id}")
+
+def delete_last_run():
+    run_id_file = config.run_id_file_path
+    with open(run_id_file, 'r') as f:
+        run_id = int(f.read().strip())
+    
+    if run_id > 0:
+        # remove directory contents and directory
+        os.system(f"rm -rf {config.log_directory_path.format(run_id=run_id)}")
+
+        os.remove(config.run_id_file_path)
+        with open(run_id_file, 'w') as f:
+            f.write(str(run_id - 1))
+        print(f"Deleted run {run_id}")
+    else:
+        print("No runs to delete")
 
 # Example usage
 def main():
@@ -269,6 +296,6 @@ if __name__ == "__main__":
 
 
 
-    pretty_message_logs('./results/log_1/robot_agent.pkl', './results/log_1/robot_agent_chat/')
-    pretty_message_logs('./results/log_1/vision_assistant.pkl', './results/log_1/vision_chat/')
+    pretty_message_logs('./results/log_6/robot_agent.pkl', './results/log_6/robot_agent_chat/')
+    pretty_message_logs('./results/log_6/vision_assistant.pkl', './results/log_6/vision_chat/')
 

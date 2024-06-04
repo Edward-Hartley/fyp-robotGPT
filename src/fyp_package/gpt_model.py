@@ -7,6 +7,7 @@ import json
 import base64
 from fyp_package import config, utils, agent_logging
 import base64
+import cv2
 
 def get_api_key():
     # openai api key in .openai_key file
@@ -72,6 +73,13 @@ class GptModel:
 # encode image to base64
 # image path must point to either png or jpg file
 def encode_image(image_path):
+    if not config.simulation:
+        # load image and crop it from the left by config.view_image_crop_left
+        image = cv2.imread(image_path)
+        image = image[:, config.view_image_crop_left:]
+        cv2.imwrite(config.image_to_display_in_message_path, image)
+        image_path = config.image_to_display_in_message_path
+
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
     

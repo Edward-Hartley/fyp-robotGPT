@@ -43,6 +43,8 @@ else:
         fov = latest_camera_specs["fov"]
         focal_lengths = [intrinsics[0, 0], intrinsics[1, 1]]
 
+    view_image_crop_left = 460
+
 
 #### Object detection
 

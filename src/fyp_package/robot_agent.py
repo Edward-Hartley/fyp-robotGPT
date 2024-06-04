@@ -1,3 +1,4 @@
+import traceback
 import numpy as np
 from io import StringIO
 from contextlib import redirect_stdout
@@ -126,9 +127,13 @@ class RobotAgent:
 
 
             if sections[1] == 'COMPLETE':
-                end = self.confirm_complete(query)
+                end, completion = self.confirm_complete(query)
                 if end:
                     break
+                else:
+                    sections = completion.split('$$')
+                    if len(sections) <= 1 or sections[1] != 'CODE':
+                        continue
 
             code_str = sections[2]
 
@@ -159,8 +164,8 @@ class RobotAgent:
         utils.log_completion(self._name, completion, config.latest_generation_logs_path)
         
         if 'COMPLETE' in completion:
-            return True
-        return False
+            return True, completion
+        return False, completion
 
 
 # class FGenAgent:
@@ -307,7 +312,7 @@ class EnvWrapper():
 
         grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
 
-        contact_point = config.cam2base_tf @ np.concatenate([contact_point_cam, [1]])[:3]
+        contact_point = (config.cam2base_tf @ np.concatenate([contact_point_cam, [1]]))[:3]
         # placeholder to remind this might be needed
         contact_point[2] -= 0.0
 
@@ -394,7 +399,7 @@ if __name__ == '__main__':
     test_name = 'all_features'
     cfg_agents = test_configurations.all_features
 
-    user_query = 'Move the green mug to the right slightly.'
+    user_query = 'Pick the toy frying pan up and hold it off the table.'
 
 
     full_configuration = {
@@ -408,5 +413,14 @@ if __name__ == '__main__':
     }
     
     agent_logging.log_configuration(full_configuration, test_name)
+
+    try:
+        run_agent(cfg_agents, user_query)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        print(f"error traceback: {traceback.format_exc()}")
+        agent_logging.log_event('Error occurred', f"Error: {e}")
+    finally:
+        agent_logging.print_run_id()
+        agent_logging.log_final_notes()
     
-    run_agent(cfg_agents, user_query)

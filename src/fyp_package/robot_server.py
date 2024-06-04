@@ -68,6 +68,8 @@ class Robot:
 
         try:
             poses = [float(n) for n in pose_mq]
+            if poses[2] < 0.005:
+                poses[2] = 0.005
             result = pose_client.cartesian_pose_client(poses[:3], poses[3:])
             print('Cartesian pose sent!')
             print("result: ", result)
