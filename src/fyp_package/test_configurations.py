@@ -7,7 +7,7 @@ all_features = {
             'top_system_message': r_prompts.top_system_message,
             'final_system_message': r_prompts.final_system_message,
             'check_completion_message': r_prompts.check_completion_message,
-            'prompt_examples': [r_prompts.all_modules_example],
+            'prompt_examples': [r_prompts.all_modules_example, r_prompts.grasping_example_snippet],
             'model': config.default_openai_model,
             'vision_enabled': True,
             'include_gptv_context': True,
@@ -44,6 +44,9 @@ remove_modules['grasp']['vision_assistant']['prompt_examples'] = [
     v_prompts.vision_detect_object_example,
     v_prompts.vision_display_image_no_grasp_example,
 ]
+remove_modules['grasp']['robot_agent']['prompt_examples'] = [
+    r_prompts.all_modules_example,
+]
 
 remove_modules['display'] = copy.deepcopy(all_features)
 remove_modules['display']['vision_assistant']['functions'].remove('display_image')
@@ -58,8 +61,11 @@ remove_modules['grasp_and_display']['vision_assistant']['functions'].remove('dis
 remove_modules['grasp_and_display']['vision_assistant']['functions'].remove('detect_grasp')
 remove_modules['grasp_and_display']['include_gptv_context'] = False
 remove_modules['grasp_and_display']['prompt_examples'] = [
-    v_prompts.vision_generic_example, # if never using detect grasp, then add new example
+    v_prompts.vision_generic_example, 
     v_prompts.vision_detect_object_example,
+]
+remove_modules['grasp']['robot_agent']['prompt_examples'] = [
+    r_prompts.all_modules_example,
 ]
 
 remove_modules['object_and_grasp'] = copy.deepcopy(all_features)
@@ -67,8 +73,11 @@ remove_modules['object_and_grasp']['vision_assistant']['functions'].remove('dete
 remove_modules['object_and_grasp']['vision_assistant']['functions'].remove('detect_grasp')
 remove_modules['object_and_grasp']['include_gptv_context'] = True
 remove_modules['object_and_grasp']['prompt_examples'] = [
-    v_prompts.vision_generic_example, # if never using detect grasp, then add new example
+    v_prompts.vision_generic_example,
     v_prompts.vision_get_images_example,
+]
+remove_modules['grasp']['robot_agent']['prompt_examples'] = [
+    r_prompts.all_modules_example,
 ]
 
 remove_modules['trajectory_control'] = copy.deepcopy(all_features)
@@ -82,6 +91,7 @@ remove_modules['no_pick_and_place'] = copy.deepcopy(all_features)
 remove_modules['no_pick_and_place']['robot_agent']['functions'].remove('put_first_on_second')
 remove_modules['no_pick_and_place']['robot_agent']['prompt_examples'] = [
     r_prompts.no_pick_and_place_example,
+    r_prompts.grasping_example_snippet
 ]
 
 remove_modules['no_top_level_vision'] = copy.deepcopy(all_features)

@@ -32,7 +32,7 @@ $$VIEW_SCENE$$
 '''.strip().replace('\n    ', '\n')
 
 functions_advice = {
-    "vision_assistant": "the vision_assistant() function allows you to delegate perception tasks to an agent who has access to perception models. You can request information about the scene and specify the requested information and return format in the message. You can also request information in the format of a string and print it in order to inform your own decisions. The vision agent is reset upon each query, make sure to include information you already know so it doesn't have to recalculate it.",
+    "vision_assistant": "the vision_assistant() function allows you to delegate perception tasks to an agent who has access to perception models. You can request information about the scene and specify the requested information and return format in the message. You can also request information in the format of a string and print it in order to inform your own decisions. The vision agent is reset upon each query, make sure to include information you already know so it doesn't have to recalculate it. The vision assistant can also provide information about how to grasp, which you should use for hard-to-grasp objects like things with handles or large dimensions and things you should grasp by the edge instead of the center.",
     # If move robot is in the other primitive move functions are also in
     "move_robot": "You can finely control the robot's gripper using the move_robot and gripper functions. When you do not specify an orientation, the gripper will default to a vertical orientation in the absolute movement and it will not change the orientation in the relative movement. In order to only change the orientation, you can use the move_robot_relative function with a position of [0, 0, 0]. While using these controls, frequently remind yourself of your overall aim and check progress against it using VIEW_SCENE.",
     "put_first_on_second": "This function is a helper, it usefully abstracts fine control for when an object is easy to pick up and move. You should use it when you can but if it doesn't work consider controlling the robot more finely with the move_robot function."
@@ -215,7 +215,7 @@ stack_blocks_all_modules = [
     Image redacted in example. Image shows the middle block in the gripper.
     '''.strip().replace('\n    ', '\n'),
 
-    '''he vision assistant can help identify the best angle to grasp objects at.
+    '''
     The middle block is now in the gripper. I will now place it on the largest block. Since the block is already in my gripper I cannot use the put_first_on_second function. I will move the gripper to the position of the largest block and then move it down slightly to place the middle block.
     I am still in step 1, stacking the blocks steadily in order of size.
     I must place the middle block on the largest one.
@@ -684,3 +684,151 @@ def construct_example(stack_blocks, knock_over):
 all_modules_example = construct_example(stack_blocks_all_modules, knock_over_all_modules)
 no_pick_and_place_example = construct_example(stack_blocks_no_pick_and_place, knock_over_all_modules)
 no_fine_control_example = construct_example(stack_blocks_no_fine_control, knock_over_no_fine_control)
+
+
+grasping_example_snippet = [
+    '''
+    This is a partial example, to show important functionality of the vision assistant and movement tools.
+    The user's original task was to pass a cok. However when inspecting the scene you could not see a coke can, only a set of drawers and a piece of paper lying flat with something underneath.
+    When completing step 1 of your broad plan, to look for the can, your first attempt was to open the drawer using the vision assistant to know where to grasp and the move_robot function to open the drawer.
+    This was unsuccessful as there was no can inside so you continued with step 1 and decided to move the paper. The example begins here.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    There is no coke can in the drawer. I will continue with step 1 as my expectations for completion have not been met.
+    I will now move the paper to see if the coke can is underneath.
+    A flat piece of paper, like many objects including things with handles, long objects, and objects with a flat surface, cannot be grasped simply by grasping across the middle and therefore is hard to grasp.
+    The vision assistant can help identify the best position and angle to grasp objects at.
+    If this does not work, I may have to creatively control the robot to move the paper.
+    $$CODE$$
+    paper_grasp_pos, paper_grasp_z_angle = vision_assistant("Please return the position and z angle of how to grasp the paper. Return a tuple of a list and a float: [x, y, z], z_angle.")
+    print('paper grasp: ', paper_grasp_pos, paper_grasp_z_angle)
+
+    # I will hover over the paper before grasping it.
+    hover_pos = [paper_grasp_pos[0], paper_grasp_pos[1], paper_grasp_pos[2] + 0.1]
+    # I will print out the results to check the robot is successfully moving to each point.
+    print("hover: ", move_robot(hover_pos, [0, 0, paper_grasp_z_angle]))
+    print("grasp pos: ", move_robot(paper_grasp_pos, [0, 0, paper_grasp_z_angle]))
+    print("gripper: ", close_gripper())
+    print("pick up: ", move_robot(hover_pos, [0, 0, paper_grasp_z_angle]))
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    stdout:
+    paper grasp: [0.068, -0.312, 0.043] [0.0, 0.0, 0.589]
+    hover:  ([0.069, -0.312, 0.144], [-0.004, 0.002, 0.590])
+    grasp pos:  ([0.070, -0.311, 0.047], [-0.004, 0.001, 0.589])
+    Gripper now closed.
+    gripper: None
+    pick up:  ([0.069, -0.311, 0.142], [-0.004, 0.002, 0.590])
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    All the movements were successful, I now expect to have the paper in the gripper.
+    I will verify this by checking the scene.
+    $$VIEW_SCENE$$
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    Image redacted in example. Image shows the still covering something.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    The paper has not been moved, I shall try creatively gripping the paper.
+    The paper is flat, I should angle the gripper to try to grasp it from the side.
+    I am not sure which side I am currently attempting to grasp, let me pause and check the scene.
+    $$CODE$$
+    print("gripper: ", open_gripper())
+    print("hover: ", move_robot(hover_pos, [0, 0, paper_grasp_z_angle]))
+    print("grasp pos: ", move_robot(paper_grasp_pos, [0, 0, paper_grasp_z_angle]))
+    print("rotate positive x: ", move_robot_relative([0, 0, 0], [0.2, 0, 0]))
+    print("gripper: ", close_gripper())
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    stdout:
+    Gripper now open.
+    gripper: None
+    hover:  ([0.069, -0.311, 0.142], [-0.004, 0.002, 0.590])
+    grasp pos:  ([0.070, -0.310, 0.047], [-0.004, 0.001, 0.589])
+    rotate positive y:  ([0.070, -0.310, 0.047], [0.196, 0.001, 0.589])
+    Gripper now closed.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    I need to check whether the paper was grasped.
+    $$VIEW_SCENE$$
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    Image redacted in example. Image shows the gripper at the far edge of the paper but tilted slightly to the side.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    The paper was not successfully grasped, and this angle of rotation did not seem to help.
+    Also, I can also notice that the gripper is quite high for grasping the paper edge.
+    I will try a different angle of rotation and move slightly downwards.
+    $$CODE$$
+    print("open gripper: ", open_gripper())
+    print("grasp_pos: ", move_robot(grasp_pos, [0, 0, paper_grasp_z_angle]))
+    print("rotate positive y and slightly down: ", move_robot_relative([0, 0, -0.01], [0, 0.2, 0]))
+    print("gripper: ", close_gripper())
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    stdout:
+    open gripper: None
+    grasp_pos:  ([0.070, -0.310, 0.047], [-0.004, 0.001, 0.589])
+    rotate positive y and slightly down:  ([0.070, -0.310, 0.037], [-0.004, 0.201, 0.589])
+    Gripper now closed.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    I need to check whether the paper was grasped.
+    $$VIEW_SCENE$$
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    Image redacted in example. Image shows the gripper at the edge of the paper and slightly tilted towards the camera.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    The paper was still not successfully grasped as the gripper tilted away from the edge instead of towards it.
+    From this i can learn that y is the correct axis to rotate but it should be negative instead of positive.
+    I will move downwards in a similar way but rotate in the other direction.
+    $$CODE$$
+    print("open gripper: ", open_gripper())
+    print("grasp_pos: ", move_robot(grasp_pos, [0, 0, paper_grasp_z_angle]))
+    print("rotate negative y and slightly down: ", move_robot_relative([0, 0, -0.01], [0, -0.2, 0]))
+    print("gripper: ", close_gripper())
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    stdout:
+    open gripper: None
+    grasp_pos:  ([0.070, -0.310, 0.047], [-0.004, 0.001, 0.589])
+    rotate negative y and slightly down:  ([0.070, -0.310, 0.037], [-0.004, -0.199, 0.589])
+    Gripper now closed.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    I need to check whether the paper was grasped.
+    $$VIEW_SCENE$$
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    Image redacted in example. Image shows the gripper grasping the edge of the paper and slightly tilted away from the camera.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    The paper was successfully grasped. I will now move it away to continue with step 1, looking for the coke can.
+    I am expecting to see a coke can by the end of step 1, and then I can move onto step 2 to complete the user's original task of passing the coke.
+    $$CODE$$
+    print("list paper up: ", move_robot_relative([0, 0, 0.2], [0, 0, 0]))
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    This is the end of this partial example, to show important functionality of the vision assistant and movement tools.
+    Remember that this is not all you can do, be creative and relentless in solving problems.
+    '''.strip().replace('\n    ', '\n'),
+]
