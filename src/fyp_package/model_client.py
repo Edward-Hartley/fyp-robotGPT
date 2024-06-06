@@ -105,11 +105,11 @@ if __name__ == "__main__":
         import pybullet as pb
         import cv2
         agent_logging.setup_logging()
-        env = environment.SimulatedEnvironment(3, 3)
-        env.get_images(save=True)
+        env = environment.PhysicalEnvironment()
+        rgb, depth = env.get_images(save=True)
 
-        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "paper cup", save=True)
-        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "paper cup", save=True)
+        masks, boxes, phrases = client.langsam_predict(config.latest_rgb_image_path, "coke can", save=True)
+
         masks = np.load(config.latest_segmentation_masks_path)
         phrases = ["paper cup"] * len(masks)
 
@@ -121,12 +121,15 @@ if __name__ == "__main__":
         from fyp_package import object_detection_utils
         results= object_detection_utils.get_object_cube_from_segmentation(masks, phrases, cv2.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
         above_object = results[0]['position'] + np.array([0, 0, 0.1])
-        # env.move_robot(above_object)
         input("Press Enter to move")
+        env.move_robot(above_object)
 
         result = client.graspnet_predict(
             config.latest_depth_image_path, config.latest_rgb_image_path, config.chosen_segmentation_mask_path, save=True
         )
+
+        masks, boxes, phrases = client.langsam_predict(rgb, "paper cup", save=True)
+
 
         grasp2cam_tf, _score, contact_point_cam = result
 

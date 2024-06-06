@@ -2,6 +2,7 @@ import sys
 import socket
 import signal
 from threading import Thread
+import time
 
 import roslib; roslib.load_manifest('kinova_demo') # type: ignore
 import rospy # type: ignore
@@ -110,9 +111,13 @@ class Robot:
             print('program interrupted before completion')
 
     def close_gripper(self):
+        self.move_fingers([9.5, 9.5], relative=False)
+        time.sleep(0.5)
+        self.move_fingers([9.5, 9.5], relative=False)
         return self.move_fingers([9.5, 9.5], relative=False)
     
     def open_gripper(self):
+        self.move_fingers([0, 0], relative=False)
         return self.move_fingers([3, 3], relative=False)
 
     def run(self):

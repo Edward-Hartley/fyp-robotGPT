@@ -292,10 +292,9 @@ def main():
     setup_logging()
 
 if __name__ == "__main__":
-    main()
 
 
 
-    pretty_message_logs('./results/log_6/robot_agent.pkl', './results/log_6/robot_agent_chat/')
-    pretty_message_logs('./results/log_6/vision_assistant.pkl', './results/log_6/vision_chat/')
+    pretty_message_logs('./results/log_13/robot_agent.pkl', './results/log_13/robot_agent_chat/')
+    pretty_message_logs('./results/log_13/vision_assistant.pkl', './results/log_13/vision_chat/')
 

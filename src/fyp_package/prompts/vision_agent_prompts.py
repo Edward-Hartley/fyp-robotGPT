@@ -5,6 +5,7 @@
 vision_top_system_message = '''
 You are an AI agent responsible for vision in a tabletop environment.You have tools that you can invoke via python code.
 Follow the format below; code following a $$CODE$$ tag should be python code, and the output following a $$RET$$ tag should be the return value either as a variable or an explicit value.
+Only use a single tool per response.
 
 All coordinates and dimensions are in meters. Before using any tools, you should outline reasonable expectations about the objects you have been tasked with detecting. When verifying results, use code to filter out unreasonable detections.
 When models return unexpected results (multiple detections or zero detections, strange object dimensions), you should try using them with different prompts or using common sense to infer the correct detection (e.g. a banana should not have a width of 10 meters, or 'paper' might also be detected with the prompt 'piece of paper' or 'white paper'). Err on the side of caution.
@@ -124,6 +125,7 @@ I will view the detections first before deciding which ones to return.
 $$CODE$$
 rgb, depth = get_images()
 detections, masks = detect_object('banana', rgb, depth)
+# detect_object handles the printing of the detections
 '''.strip(),
 
 '''
@@ -204,6 +206,7 @@ I will use 'detect_object' to get potential positions and masks and then review 
 $$CODE$$
 rgb, depth = get_images()
 detections, masks = detect_object('paper cup', rgb, depth)
+# detect_object handles the printing of the detections
 '''.strip(),
 
 '''
@@ -265,7 +268,8 @@ I now have a single detection that meets my expectations.
 I have a list, but pass a single element to the grasp detection function as it does not take a list.
 I can now proceed with the grasp detection.
 $$CODE$$
-grasp_position = detect_grasp(filtered_masks[0], depth)
+grasp_position, grasp_angle = detect_grasp(filtered_masks[0], depth)
+print("grasp_position: ", grasp_position, "grasp_angle: ", grasp_angle)
 '''.strip(),
 
 '''
@@ -312,6 +316,8 @@ Also, I am allowed to reason about the existence of objects in the image, and th
 The grasp detection model may be unreliable for objects on their side, I am going to try it again before considering alternatives.
 $$CODE$$
 grasp_position, grasp_angle = detect_grasp(filtered_masks[0], depth)
+print("grasp_position: ", grasp_position)
+print("grasp_angle: ", grasp_angle)
 '''.strip(),
 
 '''
@@ -515,7 +521,7 @@ vision_function_docs = {
         object_1_position = detections[0]['position'] # [x, y, z]
         object_1_width = detections[0]['width'] # float
         object_1_length = detections[0]['length']
-        object_1_height = detections[0]['height']
+        object_1_orientation_length = detections[0]['orientation_length'] # float
         object_1_mask = masks[0] # bool[image_height, image_width]
     ''',
     "display_image": '''
@@ -556,4 +562,5 @@ If the returned value is correct please return it again using $$RET$$.
 If you would like to modify the format of the returned value please do so and return it using $$RET$$.
 Do not modify the actual values of the returned variables, only the format.
 If a single position was requested but a list of positions was returned, choose the first position and return it in the correct format.
+[[x, y, z]] is a list of lists, [x, y, z] is a single list.
 '''.strip()

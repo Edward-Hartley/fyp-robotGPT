@@ -77,8 +77,8 @@ def encode_image(image_path):
         # load image and crop it from the left by config.view_image_crop_left
         image = cv2.imread(image_path)
         image = image[:, config.view_image_crop_left:]
-        cv2.imwrite(config.image_to_display_in_message_path, image)
-        image_path = config.image_to_display_in_message_path
+        cv2.imwrite(config.temp_image_path, image)
+        image_path = config.temp_image_path
 
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')

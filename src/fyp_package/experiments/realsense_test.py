@@ -460,6 +460,10 @@ try:
         #   depth align to color on left
         #   depth on right
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+        # crop to pixel 460 from the left
+        depth_colormap = depth_colormap[:, 460:]
+        bg_removed = bg_removed[:, 460:]
+        
         images = np.hstack((bg_removed, depth_colormap))
 
         cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)

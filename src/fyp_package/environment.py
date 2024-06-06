@@ -62,6 +62,9 @@ class PhysicalEnvironment(Environment):
     
     def reset_robot(self):
         self.robot.move_robot(config.robot_ready_position, config.robot_vertical_orientation_q)
+        # gripper servos require resetting
+        self.robot.open_gripper()
+        self.robot.close_gripper()
         self.robot.open_gripper()
 
     def initialize_camera(self):
@@ -108,7 +111,7 @@ class PhysicalEnvironment(Environment):
         pick_pos = np.array(pick_pos)
         place_pos = np.array(place_pos)
         # Set fixed primitive z-heights.
-        hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])
+        hover_xyz = np.float32([pick_pos[0], pick_pos[1], pick_pos[2] + 0.1])
         if pick_pos.shape[-1] == 2:
             pick_xyz = np.append(pick_pos, 0.025)
         else:
@@ -116,49 +119,50 @@ class PhysicalEnvironment(Environment):
         if place_pos.shape[-1] == 2:
             place_xyz = np.append(place_pos, 0.15)
         else:
-            place_xyz = np.float32([place_pos[0], place_pos[1], place_pos[2] + 0.03])
+            place_xyz = np.float32([place_pos[0], place_pos[1], place_pos[2] + 0.12])
 
         # Move to object.
-        ee_xyz = self.get_ee_pose()[0]
-        while np.linalg.norm(hover_xyz - ee_xyz) > 0.03:
-            self.robot.move_robot(hover_xyz, pick_orientation)
-            ee_xyz = self.get_ee_pose()[0]
+        ee_xyz = self._robust_move_p(hover_xyz, pick_orientation)
 
-        while np.linalg.norm(pick_xyz - ee_xyz) > 0.03:
-            self.robot.move_robot(pick_xyz, pick_orientation)
-            ee_xyz = self.get_ee_pose()[0]
+        ee_xyz = self._robust_move_p(pick_xyz, pick_orientation)
 
         # Pick up object.
         self.close_gripper()
         time.sleep(1)
 
-        while np.linalg.norm(hover_xyz - ee_xyz) > 0.03:
-            self.robot.move_robot(hover_xyz)
-            ee_xyz = self.get_ee_pose()[0]
+        ee_xyz = self._robust_move_p(hover_xyz, pick_orientation)
 
         # Move to place location.
-        while np.linalg.norm(place_xyz - ee_xyz) > 0.03:
-            self.robot.move_robot(place_xyz)
-            ee_xyz = self.get_ee_pose()[0]
+        hover_xyz = np.float32([place_pos[0], place_pos[1], place_pos[2] + 0.2])
+        ee_xyz = self._robust_move_p(hover_xyz)
 
         # Place down object.
-        place_xyz[2] = 0.1
-        while np.linalg.norm(place_xyz - ee_xyz) > 0.03:
-            self.robot.move_robot(place_xyz)
-            ee_xyz = self.get_ee_pose()[0]
+        ee_xyz = self._robust_move_p(place_xyz)
 
         self.open_gripper()
         time.sleep(1)
 
-        place_xyz[2] = 0.2
-        ee_xyz = self.get_ee_pose()[0]
-        while np.linalg.norm(place_xyz - ee_xyz) > 0.03:
-            self.robot.move_robot(place_xyz)
-            ee_xyz = self.get_ee_pose()[0]
+        ee_xyz = self._robust_move_p(hover_xyz)
+
+        # make sure gripper has opened fully
+        self.open_gripper()
+        time.sleep(1)
 
         self.reset_robot()
 
         return True
+    
+    def _robust_move_p(self, xyz, pick_orientation=config.robot_vertical_orientation_q):
+        ee_xyz = self.get_ee_pose()[0]
+        count = 0
+        while np.linalg.norm(xyz - ee_xyz) > 0.03:
+            self.robot.move_robot(xyz, pick_orientation)
+            ee_xyz = self.get_ee_pose()[0]
+            count += 1
+            if count > 20:
+                break
+
+        return ee_xyz
 
     def get_images(self, save=False, save_path_rgb=config.latest_rgb_image_path, save_path_depth=config.latest_depth_image_path):
         bgr, depth_image = self.camera.get_frame(save, save_path_rgb, save_path_depth)
@@ -251,6 +255,11 @@ if __name__ == "__main__":
 
 
     physical_env = PhysicalEnvironment()
+    rgb, depth = physical_env.get_images(save=True)
+    image_path = config.latest_rgb_image_path
+    image = cv2.imread(image_path)
+    image = image[:, config.view_image_crop_left:]
+    cv2.imwrite(config.image_to_display_in_message_path, image)
     physical_env.move_robot([-0.206, -0.293, 0.136])
     input("Press Enter to move to bowl")
     # sim_env = SimulatedEnvironment(3, 3)

@@ -37,11 +37,13 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
         if width < length:
             print("Orientation along shorter side (width):", np.around(cubes_orients[i][0], 3))
             print("Orientation along longer side (length):", np.around(cubes_orients[i][1], 3), "\n")
-            results[i]['orientation'] = {'width': np.around(cubes_orients[i][0], 3), 'length': np.around(cubes_orients[i][1], 3)}
+            results[i]['orientation_width'] = np.around(cubes_orients[i][0], 3)
+            results[i]['orientation_length'] = np.around(cubes_orients[i][1], 3)
         else:
             print("Orientation along shorter side (length):", np.around(cubes_orients[i][1], 3))
             print("Orientation along longer side (width):", np.around(cubes_orients[i][0], 3), "\n")
-            results[i]['orientation'] = {'length': np.around(cubes_orients[i][1], 3), 'width': np.around(cubes_orients[i][0], 3)}
+            results[i]['orientation_width'] = np.around(cubes_orients[i][1], 3)
+            results[i]['orientation_length'] = np.around(cubes_orients[i][0], 3)
 
     print("Total number of detections made:", len(segmentation_texts))
 
@@ -75,7 +77,7 @@ def get_max_contour(mask, mask_width, mask_height):
 
     contour_index = None
 
-    max_length = 0
+    max_length = 100
     for c, contour in enumerate(contours):
         contour_points = [(c, r) for r in range(0, mask_height, step) for c in range(0, mask_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1]
         if len(contour_points) > max_length:
@@ -97,6 +99,10 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
     bounding_cubes_orientations = []
 
     for mask in masks:
+        if config.simulation == False:
+            mask = erode_mask(mask, 25)
+        else:
+            mask = erode_mask(mask, 5)
 
         contour = get_max_contour(mask, image_width, image_height)
 
@@ -111,19 +117,15 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
             step = 20
 
         if contour is None:
-            if config.simulation == False:
-                conservative_mask = erode_mask(mask, 20)
-            else:
-                conservative_mask = erode_mask(mask, 5)
-            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_width-1, step) for c in range(0, image_height-1, step) if conservative_mask[r][c] and depth_array[r][c] not in config.invalid_depth_values]
+            contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_width-1, step) for c in range(0, image_height-1, step) if mask[r][c] and depth_array[r][c] not in config.invalid_depth_values]
         else:
             contour_pixel_points = [(c, r, depth_array[r][c]) for r in range(0, image_height, step) for c in range(0, image_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1 and depth_array[r][c] not in config.invalid_depth_values]
         contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
         # # use matplotlib to plot the height map
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(np.array(contour_world_points)[::20, 0], np.array(contour_world_points)[::20, 1], np.array(contour_world_points)[::20, 2])
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.scatter(np.array(contour_world_points)[::20, 0], np.array(contour_world_points)[::20, 1], np.array(contour_world_points)[::20, 2])
         # plt.show()
 
 
@@ -190,6 +192,7 @@ def erode_mask(mask, erosion_size):
 
 
 if __name__ == '__main__':
+    agent_logging.setup_logging()
     masks = np.load(config.latest_segmentation_masks_path)
     phrases = ["paper cup"] * len(masks)
 
@@ -204,13 +207,13 @@ if __name__ == '__main__':
     plt.show()
 
     # plot mask over depth image
-    plt.imshow(depth_array)
-    plt.imshow(masks[0], alpha=0.5)
+    plt.imshow(depth_array[400:800, 1000:1259])
+    plt.imshow(masks[0][400:800, 1000:1259], alpha=0.5)
     plt.show()
 
     # plot eroded mask over depth image
-    plt.imshow(depth_array)
-    plt.imshow(erode_mask(masks[0], 20), alpha=0.5)
+    plt.imshow(depth_array[400:800, 1000:1259])
+    plt.imshow(erode_mask(masks[0][400:800, 1000:1259], 30), alpha=0.5)
     plt.show()
 
     results = get_object_cube_from_segmentation(masks, phrases, cv.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)

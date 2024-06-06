@@ -5,16 +5,20 @@ Alternatively, you can end your message with the $$VIEW_SCENE$$ tool to request 
 Once you have checked that the user's entire task is complete, you should give a final message ending with $$COMPLETE$$.
 
 When solving a task, you should first outline the broad stages of the task. Then, when starting each stage of the task, remind yourself of the goal of the stage. Set youself expectations for the completion of this stage and make sure you achieve them before moving on.
-Verify progress by printing the output of various functions and displaying images.
+Verify progress by printing the output of various functions and displaying images. Remember, if you check the scene and somethng has moved since you last picked it up you will have to detect where it is again before you can pick it up again.
 Be prepared to adapt to the environment as you may discover important context as you progress through the task.
 
 Setup information:
 All positions are in meters and all angles are in radians. Positive x is to the right, positive y is forward, and positive z is up. The robot's gripper is vertical when the xrot and yrot are 0, zrot controls the angle of the wrist. xrot tilts the gripper forward, yrot tilts the gripper sideways.
+When a relative robot movement does not achieve the desired effect, you must make sure to attempt meaningfully different movements such as changing which axis you move in or whether you moved/rotate by a positive or negative amount.
 
 Within the system, functions are defined for you to interact with the environment.
 {functions_advice}
 The functions have the following signatures:
 {functions_docs}
+
+The boundaries of the tabletop are as follows:
+{table_bounds}
 
 The robot system has the following packages available:
 {packages}
@@ -54,6 +58,11 @@ function_docs = {
         left_most_bowl = vision_assistant("Please tell me which bowl is largest in the scene. There are three bowls: two white and one red. Please return a string, such as 'leftmost white bowl' or 'white bowl at position (x, y, z)'.")
         print(left_most_bowl)
         mug_grasp_position, mug_grasp_z_angle = vision_assistant("Please return the position and z angle of how to grasp the ceramic mug. Return a tuple of a list and a float: [x, y, z], z_angle. The mug is located at approximately (0.102, -0.099, 0.031).")
+        print(mug_grasp_position, mug_grasp_z_angle)
+        plate_radius = vision_assistant("Please return the radius of the bowl in the scene.")
+        print(plate_radius)
+        tower_height = vision_assistant("Please return the height of the tower in the scene.")
+        print(tower_height)
     '''.strip().replace('\n    ', '\n'),
 
     "move_robot": '''
@@ -91,6 +100,7 @@ function_docs = {
 
     "close_gripper": '''
     Close the gripper.
+    Will not feedback whether the gripper was open before. Make sure it is.
 
     Returns:
         None
@@ -101,6 +111,7 @@ function_docs = {
 
     "open_gripper": '''
     Open the gripper.
+    Will not feedback whether the gripper was closed before. Make sure it is.
     
     Returns:
         None
@@ -131,10 +142,12 @@ This is the end of the examples. The real user's query will follow. All previous
 '''.strip().replace('\n    ', '\n')
 
 check_completion_message = '''
-This is a standard check to ensure that the user's task is complete. It may truly be complete.
+This is a standard check to ensure that the user's task is complete. It is very possible that it is truly complete.
 The original task was:
 "{query}"
 An image of the final scene is provided below. First, reason about the user's task and the current state of the scene. Then, if the task is complete you should repeat the COMPLETE tool in your response. If it is not, provide feedback to the robot agent to let it know what is missing.
+You MUST try something as new as possible rather than repeating the same actions.
+If in doubt, you may also find the vision agent useful for confirmation whether a task is complete. For example, you can get the new positions of objects you think you have moved and see if they are now in the correct positions (try to consider the new positions relative to the old ones).
 '''.strip().replace('\n    ', '\n')
 
 missing_tool_use_correction = '''
@@ -671,6 +684,7 @@ def construct_example(stack_blocks, knock_over):
 
     '''
     Image redacted in example. Image shows the blocks knocked over.
+    Remember to actually judge images in the real run as the robot is very unreliable or you might have controlled it incorrectly.
     '''.strip().replace('\n    ', '\n'),
 
     '''

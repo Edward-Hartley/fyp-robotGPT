@@ -61,6 +61,7 @@ class RobotAgent:
             top_system_message = top_system_message.replace('{few_shot_introduction}', prompts.few_shot_introduction)
         else:
             top_system_message = top_system_message.replace('{few_shot_introduction}', '')
+        top_system_message = top_system_message.replace('{table_bounds}', str(config.sim_corner_pos if config.simulation else config.real_corner_pos))
 
         self.add_message(build_message(top_system_message, 'system'))
         for prompt in self.prompt_examples:
@@ -100,6 +101,8 @@ class RobotAgent:
         gvars.update({'exec': empty_fn, 'eval': empty_fn})
         lvars=None
 
+        attempts = 0
+
         if self._cfg['include_gptv_context']:
             rgb, _ = self._env.get_images(save=False)
             utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
@@ -127,25 +130,32 @@ class RobotAgent:
 
 
             if sections[1] == 'COMPLETE':
+                attempts += 1
+                if attempts >= 2:
+                    break
                 end, completion = self.confirm_complete(query)
                 if end:
                     break
                 else:
                     sections = completion.split('$$')
-                    if len(sections) <= 1 or sections[1] != 'CODE':
+                    if len(sections) <= 1:
                         continue
 
-            code_str = sections[2]
+            if sections[1] == 'CODE':
 
-            stdout = exec_safe(code_str, gvars, lvars)
+                code_str = sections[2]
 
-            system_message = f'stdout: \n{stdout}'
-            print(system_message)
-            utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
+                stdout = exec_safe(code_str, gvars, lvars)
 
-            self.add_message(build_message(system_message, 'system'))
+                system_message = f'stdout: \n{stdout}'
+                print(system_message)
+                utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
-            if "display_image(" in code_str:
+                self.add_message(build_message(system_message, 'system'))
+
+            if "$$VIEW_SCENE$$" in completion:
+                rgb, _ = self._env.get_images(save=False)
+                utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
                 self.add_message(self.build_image_message_if_able(config.image_to_display_in_message_path))
                 utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
 
@@ -307,7 +317,7 @@ class EnvWrapper():
         result = self.model_client.graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         if result is None:
             print("No grasp detected. Returned None, None.")
-            return None
+            return None, None
         grasp2cam_tf, _score, contact_point_cam = result
 
         grasp2base_tf = config.cam2base_tf @ grasp2cam_tf
@@ -399,8 +409,7 @@ if __name__ == '__main__':
     test_name = 'all_features'
     cfg_agents = test_configurations.all_features
 
-    user_query = 'Pick the toy frying pan up and hold it off the table.'
-
+    user_query = 'Put the can which is furthest from the bowl into the bowl'
 
     full_configuration = {
         'test_name': test_name,
