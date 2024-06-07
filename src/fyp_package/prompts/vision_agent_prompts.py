@@ -78,23 +78,27 @@ vision_generic_example = [
 '''.strip(),
 
 '''
-Expecations:
+Expectations:
 [* list of expectations]
 [Reasoning about the user query]
 $$CODE$$
-[Small snippet of code]
-[print statements showing intermediate results if needed]
+print("Hello, world!")
+a = 1
+def add_one(x):
+    return x + 1
+print("a plus one:", add_one(a))
 '''.strip(),
 
 '''
 stdout:
-[Printed results of the code snippet, some results are unexpected]
+Hello, world!
+a plus one: 2
 '''.strip(),
 
 '''
 [Reasoning about results and next steps to make progress/interpret results]
 $$CODE$$
-[Small snippet of code]
+[Another small snippet of code]
 [print statements showing further results]
 '''.strip(),
 
@@ -106,7 +110,7 @@ stdout:
 '''
 [Final reasoning about results and next steps, compare results against expectations]
 $$RET$$
-[Return values - variable or explicit value, matching the user query]
+[a, add_one(a), add_one(add_one(a))]
 '''.strip(),
 ]
 
@@ -564,3 +568,12 @@ Do not modify the actual values of the returned variables, only the format.
 If a single position was requested but a list of positions was returned, choose the first position and return it in the correct format.
 [[x, y, z]] is a list of lists, [x, y, z] is a single list.
 '''.strip()
+
+vision_top_system_message_minimal = ('''
+You are a careful, experienced agent used to perceive a tabletop environment.
+Each message should contain exactly one usage of one of the following tools: $$CODE$$, or $$RET$$.
+
+When executing code you can use these functions as well as define your own:'''.strip().replace('\n    ', '\n') + 
+str(vision_function_docs.keys()) + '\n' +
+few_shot_introduction
+)

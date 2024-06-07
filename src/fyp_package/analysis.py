@@ -98,6 +98,9 @@ def chat_generation_time_metrics(run_id) -> dict:
         'max_prompt_tokens': 0,
         'max_completion_tokens': 0
     })
+    #initiate robot_agent and vision_assistant metrics
+    agent_metrics['robot_agent'] = agent_metrics['robot_agent']
+    agent_metrics['vision_assistant'] = agent_metrics['vision_assistant']
 
     current_starts = {}
 
@@ -311,6 +314,36 @@ def total_time_for_run(run_id) -> float:
         return (end_time - start_time).total_seconds()
     else:
         raise ValueError(f"Run ID {run_id} did not have both a start and end event.")
+    
+def vision_test_success_mapping(run_id) -> float:
+    # vision test includes multiple user queries and test complete logs
+    # we want a mapping from query to whether it was successful
+    # we can use the test complete logs to determine success
+    log_file = get_log_file(run_id, LOG_FILE)
+
+    if not os.path.exists(log_file):
+        raise FileNotFoundError(f"Log file for run ID {run_id} does not exist.")
+
+    with open(log_file, 'r') as f:
+        lines = f.readlines()
+
+    # Regex to find the "Test complete" event with success status
+    pattern = re.compile(r'Event Type: Test complete, Details: Success: (?P<success>True|False), Notes: (?P<notes>.+)')
+    query_pattern = re.compile(r'Event Type: User query, Details: (?P<query>.+)')
+
+    query_success_mapping = {}
+    current_query = None
+
+    for line in lines:
+        query_match = query_pattern.search(line)
+        match = pattern.search(line)
+        if query_match:
+            current_query = query_match.group('query')
+        if match and current_query != 'exit':
+            success = match.group('success')
+            query_success_mapping[current_query] = query_success_mapping.get(current_query, 0) + (success == 'True')
+
+    return query_success_mapping
 
 def print_runs_metrics(run_ids):
     print(user_query(run_ids[0]))
@@ -331,17 +364,46 @@ def print_runs_metrics(run_ids):
     print("\tPut first on second:", modules_usage['put_first_on_second'])
     print()
 
+def print_vision_test_metrics(vision_test_run_id):
+    print("Run ID", vision_test_run_id)
+    vision_gpt_usage = chat_generation_time_metrics(vision_test_run_id)['vision_assistant']
+    print("total prompt tokens:", vision_gpt_usage['total_prompt_tokens'], "total completion tokens:", vision_gpt_usage['total_completion_tokens'])
+    for i, success in vision_test_success_mapping(vision_test_run_id).items():
+        print(f"\tquery {i}: {success}")
+    print("Total success:", sum(vision_test_success_mapping(vision_test_run_id).values()))
+
 
 def main():
+    # full
     for i in range(8):
         run_ids = list(range(i*6+1, (i+1)*6+1))
         print_runs_metrics(run_ids)
         # print(total_time_for_run(run_ids[0])
-
-    for i in range(43, 49):
-        if modules_usage(i)['fine_control'] > 0:
-            print("Fine control was used in run", i)
         
+    # remove modules
+    for i in range(4):
+        run_ids = list(range(i*3+49, (i+1)*3+49))
+        # print("Run IDs", run_ids, ": ", user_query(run_ids[0]))
+        print_runs_metrics(run_ids)
+
+    #vision tests
+    for i in range(2):
+        vision_test_run_id = 61 + i
+        # print vision assistant usage
+        print_vision_test_metrics(vision_test_run_id)
+
+
+
+    for i in range(8):
+        run_ids = list(range(i*6+1, (i+1)*6+1))
+        print("Run IDs", run_ids, ": ", user_query(run_ids[0]))
+        print("success rate:", success_rate(run_ids))
+
+    # for i in [37, 38, 39, 40, 41, 42] :
+    #     print("Run", i, "success:", successful_run(i))
+    #     print("query:", user_query(i))
+
+    # print_runs_metrics([59])
 
 if __name__ == "__main__":
     main()

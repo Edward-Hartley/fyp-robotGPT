@@ -73,6 +73,8 @@ def get_max_contour(mask, mask_width, mask_height):
     thresh[mask] = 255
 
     contours, hierarchy = cv.findContours(thresh, cv.RETR_LIST, cv.CHAIN_APPROX_TC89_L1)
+    if len(contours) == 0:
+        return None
     cnt = contours[0]
 
     contour_index = None

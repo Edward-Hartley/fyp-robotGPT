@@ -137,6 +137,7 @@ function_docs = {
     '''.strip().replace('\n    ', '\n'),
 }
 
+
 final_system_message = '''
 This is the end of the examples. The real user's query will follow. All previous variables no longer exist and you must start from scratch. The demonstration shows you only a very limited way to interact with the environment. You should use your creativity to adapt and solve the user's task.
 '''.strip().replace('\n    ', '\n')
@@ -153,6 +154,52 @@ If in doubt, you may also find the vision agent useful for confirmation whether 
 missing_tool_use_correction = '''
 Format error: No $$ found in completion. Please make sure you use exactly one of $$CODE$$, $$VIEW_SCENE$$, or $$COMPLETE$$ in your response.
 '''
+
+top_system_message_minimal = ('''
+You are a careful, experienced agent operating a robot in a real-world environment.
+Each message should contain exactly one usage of one of the following tools: $$CODE$$, $$VIEW_SCENE$$, or $$COMPLETE$$.
+The boundaries of the tabletop are as follows:
+{table_bounds}
+When executing code you can use these functions as well as define your own:'''.strip().replace('\n    ', '\n') + 
+str(function_docs.keys()) + '\n' +
+few_shot_introduction
+)
+
+super_simple_examples = [
+    '''
+    This is a short demonstration of the format of viable messages and tool uses, please follow the same format.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    [Reasoning, expectations, observations, or other text.]
+    $$CODE$$
+    print("Hello, world!")
+    a = 1
+    def add_one(x):
+        return x + 1
+    print("a plus one:", add_one(a))
+    '''
+
+    '''
+    stdout:
+    Hello, world!
+    a plus one: 2
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    [Reasoning, expectations, observations, or other text.]
+    $$VIEW_SCENE$$
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    An image of the scene is shown to you but is redacted here.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    [Reasoning, expectations, observations, or other text.]
+    $$COMPLETE$$
+    '''.strip().replace('\n    ', '\n'),
+]
 
 stack_blocks_all_modules = [
     '''
