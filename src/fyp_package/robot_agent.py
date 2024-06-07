@@ -152,6 +152,7 @@ class RobotAgent:
                 utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
                 self.add_message(build_message(system_message, 'system'))
+                return
 
             if "$$VIEW_SCENE$$" in completion:
                 rgb, _ = self._env.get_images(save=False)
@@ -406,10 +407,10 @@ def run_agent(
 
 if __name__ == '__main__':
     agent_logging.setup_logging()
-    test_name = 'minimal_top_prompt'
-    cfg_agents = test_configurations.minimal_prompts['top_and_vision']
+    test_name = 'cap_top_only'
+    cfg_agents = test_configurations.robotic_code_as_policy
 
-    user_query = 'Knock over the bottle.'
+    user_query = 'Arrange the blocks in a line from the top left corner to the bottom right corner.'
 
     full_configuration = {
         'test_name': test_name,

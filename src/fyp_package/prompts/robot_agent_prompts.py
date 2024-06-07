@@ -26,8 +26,29 @@ The robot system has the following packages available:
 {few_shot_introduction}
 '''.strip().replace('\n    ', '\n')
 
+cap_top_system_message = '''
+You are a careful, experienced agent operating a robot in a real-world environment.
+You should first use the $$VIEW_SCENE$$ tool, then use the contextual information to outline the broad stages of the task. Reason about steps to complete the task and how to programmaically achieve them. Then, use the $$CODE$$ tool to mark the beginning of your code solution to the user's task. You must solve the whole task in one code block.
+
+Setup information:
+All positions are in meters and all angles are in radians. Positive x is to the right, positive y is forward, and positive z is up. The robot's gripper is vertical when the xrot and yrot are 0, zrot controls the angle of the wrist. xrot tilts the gripper forward, yrot tilts the gripper sideways.
+
+Within the system, functions are defined for you to interact with the environment.
+{functions_advice}
+The functions have the following signatures:
+{functions_docs}
+
+The boundaries of the tabletop are as follows:
+{table_bounds}
+
+The robot system has the following packages available:
+{packages}
+
+{few_shot_introduction}
+'''.strip().replace('\n    ', '\n')
+
 few_shot_introduction = '''
-What follows are some example interactions between you and the user. Please follow the same format.
+What follows is an example interaction between you and the user. Please follow the same format.
 '''.strip().replace('\n    ', '\n')
 
 gptv_injection_message = '''
@@ -36,10 +57,10 @@ $$VIEW_SCENE$$
 '''.strip().replace('\n    ', '\n')
 
 functions_advice = {
-    "vision_assistant": "the vision_assistant() function allows you to delegate perception tasks to an agent who has access to perception models. You can request information about the scene and specify the requested information and return format in the message. You can also request information in the format of a string and print it in order to inform your own decisions. The vision agent is reset upon each query, make sure to include information you already know so it doesn't have to recalculate it. The vision assistant can also provide information about how to grasp, which you should use for hard-to-grasp objects like things with handles or large dimensions and things you should grasp by the edge instead of the center.",
+    "vision_assistant": "the vision_assistant() function allows you to delegate perception tasks to an agent who has access to perception models. You can request information about the scene and specify the requested information and return format in the message. The vision agent is reset upon each query, make sure to include information you already know so it doesn't have to recalculate it. The vision assistant can also provide information about how to grasp, which you should use for hard-to-grasp objects like things with handles or large dimensions and things you should grasp by the edge instead of the center.",
     # If move robot is in the other primitive move functions are also in
-    "move_robot": "You can finely control the robot's gripper using the move_robot and gripper functions. When you do not specify an orientation, the gripper will default to a vertical orientation in the absolute movement and it will not change the orientation in the relative movement. In order to only change the orientation, you can use the move_robot_relative function with a position of [0, 0, 0]. While using these controls, frequently remind yourself of your overall aim and check progress against it using VIEW_SCENE.",
-    "put_first_on_second": "This function is a helper, it usefully abstracts fine control for when an object is easy to pick up and move. You should use it when you can but if it doesn't work consider controlling the robot more finely with the move_robot function."
+    "move_robot": "You can finely control the robot's gripper using the move_robot and gripper functions. When you do not specify an orientation, the gripper will default to a vertical orientation in the absolute movement and it will not change the orientation in the relative movement. In order to only change the orientation, you can use the move_robot_relative function with a position of [0, 0, 0].",
+    "put_first_on_second": "This function is a helper, it usefully abstracts fine control for when an object is easy to pick up and move. You should use it when you can solve the task by just picking and placing objects but use final control when it is more complex."
 }
 
 function_docs = {
@@ -47,22 +68,17 @@ function_docs = {
     Make a request to an agent who has access to perception models to get information about the scene. Specify the requested information and return format in the message.
 
     Args:
-        message (str): The message to send to the vision assistant, be very clear about the information you need and the format you need it in. You should also provide other contextual information that will help, such as the current objects you know about in the environment. Include the positions of objects that you already know as well.
+        message (str): The message to send to the vision assistant, be very clear about the information you need and the format you need it in. You should also provide other contextual information that will help, such as the current objects you know about in the environment.
 
     Returns:
         A response of the type and format requested.
 
     Example:
         cup_xyz = vision_assistant("Please return the [x, y, z] position of the cup in the scene.")
-        print(cup_xyz)
-        left_most_bowl = vision_assistant("Please tell me which bowl is largest in the scene. There are three bowls: two white and one red. Please return a string, such as 'leftmost white bowl' or 'white bowl at position (x, y, z)'.")
-        print(left_most_bowl)
-        mug_grasp_position, mug_grasp_z_angle = vision_assistant("Please return the position and z angle of how to grasp the ceramic mug. Return a tuple of a list and a float: [x, y, z], z_angle. The mug is located at approximately (0.102, -0.099, 0.031).")
-        print(mug_grasp_position, mug_grasp_z_angle)
-        plate_radius = vision_assistant("Please return the radius of the bowl in the scene.")
-        print(plate_radius)
-        tower_height = vision_assistant("Please return the height of the tower in the scene.")
-        print(tower_height)
+        left_most_bowl = vision_assistant("Please return the [x, y, z] position of the left most bowl in the scene. There are three bowls: two white and one red.")
+        mug_grasp_position, mug_grasp_z_angle = vision_assistant(f"Please return the position and z angle of how to grasp the ceramic mug. Return a tuple of a list and a float: [x, y, z], z_angle. The mug is located at approximately {mug_pos}.")
+        plate_radius = vision_assistant("Please return the radius of the bowl in the scene as a single float.")
+        tower_height = vision_assistant("Please return the height of the tower in the scene as single float.")
     '''.strip().replace('\n    ', '\n'),
 
     "move_robot": '''
@@ -77,8 +93,7 @@ function_docs = {
         orientation (list): The [xrot, yrot, zrot] euler angles the gripper rotated to.
 
     Example:
-        new_position, new_orientation = move_robot([0.1, -0.2, 0.3], [0, 0, np.pi/2])
-        print(new_position, new_orientation)
+        move_robot([0.1, -0.2, 0.3], [0, 0, np.pi/2])
     '''.strip().replace('\n    ', '\n'),
     
     "move_robot_relative": '''
@@ -94,13 +109,13 @@ function_docs = {
 
     Example:
         # Move the gripper 10cm in the x direction and tilt the gripper by 30 degrees.
-        new_position, new_orientation = move_robot_relative([0.1, 0, 0], [0, np.pi/6, 0])
-        print(new_position, new_orientation)
+        move_robot_relative([0.1, 0, 0], [0, np.pi/6, 0])
     '''.strip().replace('\n    ', '\n'),
 
     "close_gripper": '''
     Close the gripper.
     Will not feedback whether the gripper was open before. Make sure it is.
+    The gripper always begins the task open.
 
     Returns:
         None
@@ -126,14 +141,12 @@ function_docs = {
         pick_angle (float) = 0: When picking up the object, you can optionally specify the angle to rotate the gripper to in order to get the best grasp.
 
     Returns:
-        Success: True if the object was successfully moved.
+        Success: True if the movements were successfully carried out, no guarantee the object was moved.
 
     Example:
         success = put_first_on_second(block_pos, [block_pos[0] + 0.1, block_pos[1], block_pos[2]])
-        print("moving block to the right: ", success)
         for (teabag, mug) in zip(teabag_positions, mug_positions):
-            success = put_first_on_second(teabag, mug)
-            print("moving teabag to mug: ", success)
+            put_first_on_second(teabag, mug)
     '''.strip().replace('\n    ', '\n'),
 }
 
@@ -164,6 +177,33 @@ When executing code you can use these functions as well as define your own:'''.s
 str(function_docs.keys()) + '\n' +
 few_shot_introduction
 )
+
+cap_format_example = [
+    '''
+    This is a short demonstration of the format of how to respond the user's query, please follow the same format.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    First I will look at the scene to gain context on the current state of the environment before setting my broad objectives.
+    $$VIEW_SCENE$$
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    An image of the scene is shown to you but is redacted here.
+    '''.strip().replace('\n    ', '\n'),
+
+    '''
+    [Reasoning, expectations, observations, or other text.]
+    $$CODE$$
+    [python code which interacts with the environment to completely solve the user's task. e.g.:]
+    print("Hello, world!")
+    a = 1
+    def add_one(x):
+        return x + 1
+    print("a plus one:", add_one(a))
+    [more code]
+    '''.strip().replace('\n    ', '\n'),
+]
 
 super_simple_examples = [
     '''
