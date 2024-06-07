@@ -16,6 +16,7 @@ vendor/
 build/
 dist/
 data/
+results/
 # Logs and databases
 *.log
 *.sqlite
