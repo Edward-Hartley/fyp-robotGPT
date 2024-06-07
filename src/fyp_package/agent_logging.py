@@ -295,6 +295,6 @@ if __name__ == "__main__":
 
 
 
-    pretty_message_logs('./results/log_13/robot_agent.pkl', './results/log_13/robot_agent_chat/')
-    pretty_message_logs('./results/log_13/vision_assistant.pkl', './results/log_13/vision_chat/')
+    pretty_message_logs('./results/log_72/robot_agent.pkl', './results/log_72/robot_agent_chat/')
+    pretty_message_logs('./results/log_72/vision_assistant.pkl', './results/log_72/vision_chat/')
 
