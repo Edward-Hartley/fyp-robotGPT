@@ -10,7 +10,7 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
 
     cubes_coords, cubes_orients = get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q, camera_intrinsics)
 
-    results = [{} for _ in range(len(segmentation_texts))]
+    results = [{} for _ in range(len(cubes_coords))]
 
     for i, cube_coords in enumerate(cubes_coords):
 
@@ -45,7 +45,7 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
             results[i]['orientation_width'] = np.around(cubes_orients[i][1], 3)
             results[i]['orientation_length'] = np.around(cubes_orients[i][0], 3)
 
-    print("Total number of detections made:", len(segmentation_texts))
+    print("Total number of detections made:", len(cubes_coords))
 
     return results
 
@@ -104,7 +104,7 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
         if config.simulation == False:
             mask = erode_mask(mask, 25)
         else:
-            mask = erode_mask(mask, 5)
+            mask = erode_mask(mask, 1)
 
         contour = get_max_contour(mask, image_width, image_height)
 
