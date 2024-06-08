@@ -276,10 +276,10 @@ class EnvWrapper():
         return self.env.get_ee_pose()[0]
 
     def move_robot(self, position_xyz, orientation_e=None):
-        return self.env.move_robot(position_xyz, orientation_e, relative=False)
+        return tuple(np.around(self.env.move_robot(position_xyz, orientation_e, relative=False), 3))
     
     def move_robot_relative(self, position_xyz, orientation_e=None):
-        return self.env.move_robot(position_xyz, orientation_e, relative=True)
+        return tuple(np.around(self.env.move_robot(position_xyz, orientation_e, relative=True), 3))
     
     def open_gripper(self):
         print("Gripper now open.")
@@ -409,7 +409,7 @@ if __name__ == '__main__':
     test_name = 'minimal_top_prompt'
     cfg_agents = test_configurations.minimal_prompts['top_and_vision']
 
-    user_query = 'Knock over the bottle.'
+    user_query = 'Knock over the bottle, then put a sponge on the "spill" you made.'
 
     full_configuration = {
         'test_name': test_name,

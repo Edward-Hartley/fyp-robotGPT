@@ -82,6 +82,11 @@ def user_query(run_id) -> str:
     cfg = read_logged_results(cfg_file)[0]
     return (cfg['response']['configuration']['user_query'])
 
+def test_name(run_id) -> str:
+    cfg_file = get_log_file(run_id, CONFIG_LOG)
+    cfg = read_logged_results(cfg_file)[0]
+    return (cfg['response']['configuration']['test_name'])
+
 def chat_generation_time_metrics(run_id) -> dict:
     log_file = get_log_file(run_id, LOG_FILE)
     
@@ -346,6 +351,7 @@ def vision_test_success_mapping(run_id) -> float:
     return query_success_mapping
 
 def print_runs_metrics(run_ids):
+    print(test_name(run_ids[0]))
     print(user_query(run_ids[0]))
     print("Success rate:", success_rate(run_ids))
     chat_metrics = chat_generation_time_metrics_all(run_ids)
@@ -379,6 +385,8 @@ def main():
         run_ids = list(range(i*6+1, (i+1)*6+1))
         print_runs_metrics(run_ids)
         # print(total_time_for_run(run_ids[0])
+    run_ids = list(range(91, 97))
+    print_runs_metrics(run_ids)
         
     # remove modules
     for i in range(4):
