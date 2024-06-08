@@ -133,6 +133,8 @@ class VisionAgent:
                 if DEBUG:
                     print("Returned value:", eval(sections[4], gvars, lvars))
                 return self.confirm_return(eval(sections[4], gvars, lvars), query, gvars, lvars)
+            
+            return None
 
             if "display_image(" in code_str:
                 self.add_message(build_image_message(config.image_to_display_in_message_path))

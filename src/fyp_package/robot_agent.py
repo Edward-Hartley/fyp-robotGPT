@@ -406,11 +406,39 @@ def run_agent(
     robot_agent(user_input)
 
 if __name__ == '__main__':
+#     agent_logging.setup_logging()
+#     test_name = 'cap_top_and_vision'
+#     cfg_agents = test_configurations.robotic_code_as_policy
+
+#     user_query = 'Arrange the blocks in a line from the top left corner to the bottom right corner.'
+
+#     full_configuration = {
+#         'test_name': test_name,
+#         'user_query': user_query,
+#         'cfg_agents': cfg_agents,
+#         'simulation': config.simulation,
+#         'model_temperature': config.model_temperature,
+#         'max_tokens': config.max_tokens,
+#         'stop': config.stop,
+#     }
+    
+#     agent_logging.log_configuration(full_configuration, test_name)
+
+#     try:
+#         run_agent(cfg_agents, user_query)
+#     except Exception as e:
+#         print(f"Error occurred: {e}")
+#         print(f"error traceback: {traceback.format_exc()}")
+#         agent_logging.log_event('Error occurred', f"Error: {e}")
+#     finally:
+#         agent_logging.print_run_id()
+#         agent_logging.log_final_notes()
+
     agent_logging.setup_logging()
-    test_name = 'cap_top_and_vision'
+    test_name = 'cap_vision_agent'
     cfg_agents = test_configurations.robotic_code_as_policy
 
-    user_query = 'Arrange the blocks in a line from the top left corner to the bottom right corner.'
+    user_query = 'Varied user query to test vision agent capabilities.'
 
     full_configuration = {
         'test_name': test_name,
@@ -424,66 +452,43 @@ if __name__ == '__main__':
     
     agent_logging.log_configuration(full_configuration, test_name)
 
-    try:
-        run_agent(cfg_agents, user_query)
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        print(f"error traceback: {traceback.format_exc()}")
-        agent_logging.log_event('Error occurred', f"Error: {e}")
-    finally:
-        agent_logging.print_run_id()
-        agent_logging.log_final_notes()
+    env = environment.PhysicalEnvironment()
 
-    # agent_logging.setup_logging()
-    # test_name = 'vision_assistant_no_vision_test'
-    # cfg_agents = test_configurations.remove_modules['display']
+    env_cfg = dict()
+    env_cfg['init_objs'] = list(env.obj_list)
+    env_cfg['coords'] = config.sim_corner_pos if config.simulation else config.real_corner_pos
+    env_cfg['coords']['table_z'] = config.sim_table_z if config.simulation else config.real_table_z
+    agent_env = EnvWrapper(env, env_cfg)
 
-    # user_query = 'Varied user query to test vision agent capabilities.'
-
-    # full_configuration = {
-    #     'test_name': test_name,
-    #     'user_query': user_query,
-    #     'cfg_agents': cfg_agents,
-    #     'simulation': config.simulation,
-    #     'model_temperature': config.model_temperature,
-    #     'max_tokens': config.max_tokens,
-    #     'stop': config.stop,
-    # }
-    
-    # agent_logging.log_configuration(full_configuration, test_name)
-
-    # env = environment.PhysicalEnvironment()
-
-    # env_cfg = dict()
-    # env_cfg['init_objs'] = list(env.obj_list)
-    # env_cfg['coords'] = config.sim_corner_pos if config.simulation else config.real_corner_pos
-    # env_cfg['coords']['table_z'] = config.sim_table_z if config.simulation else config.real_table_z
-    # agent_env = EnvWrapper(env, env_cfg)
-
-    # vision_variable_vars = {
-    #     k: getattr(agent_env, k)
-    #     for k in cfg_agents['vision_assistant']['functions']
-    # }
-    # vision_agent.DEBUG = True
-    # # creating the vision agent for object detection
-    # vision_assistant = vision_agent.setup_vision_agent(cfg_agents['vision_assistant'], environment_vars=vision_variable_vars)
+    vision_variable_vars = {
+        k: getattr(agent_env, k)
+        for k in cfg_agents['vision_assistant']['functions']
+    }
+    vision_agent.DEBUG = True
+    # creating the vision agent for object detection
+    vision_assistant = vision_agent.setup_vision_agent(cfg_agents['vision_assistant'], environment_vars=vision_variable_vars)
 
 
-    # while user_query != 'exit':
-    #     user_query = input("Please enter a user query: ")
-    #     if user_query == 'exit':
-    #         break
-    #     agent_logging.log_event('User query', user_query)
+    while user_query != 'exit':
 
-    #     try:
-    #         print(vision_assistant(user_query))
-    #         # robot_pos = input("Please enter the robot position: ")
-    #         # env.move_robot(eval(robot_pos))
-    #     except Exception as e:
-    #         print(f"Error occurred: {e}")
-    #         print(f"error traceback: {traceback.format_exc()}")
-    #         agent_logging.log_event('Error occurred', f"Error: {e}")
-    #     finally:
-    #         agent_logging.print_run_id()
-    #         agent_logging.log_final_notes()
+
+        user_query = input("Please enter a user query: ")
+        if user_query == 'exit':
+            break
+        agent_logging.log_event('User query', user_query)
+
+        rgb, depth = env.get_images(save=False)
+        utils.save_numpy_image(config.image_to_display_in_message_path, rgb)
+
+        try:
+            print(vision_assistant(user_query))
+            # robot_pos = input("Please enter the robot position: ")
+            # env.move_robot(eval(robot_pos))
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            print(f"error traceback: {traceback.format_exc()}")
+            agent_logging.log_event('Error occurred', f"Error: {e}")
+        finally:
+            agent_logging.print_run_id()
+            agent_logging.log_final_notes()
         
