@@ -407,7 +407,7 @@ def run_agent(
 
 if __name__ == '__main__':
     agent_logging.setup_logging()
-    test_name = 'cap_top_only'
+    test_name = 'cap_top_and_vision'
     cfg_agents = test_configurations.robotic_code_as_policy
 
     user_query = 'Arrange the blocks in a line from the top left corner to the bottom right corner.'

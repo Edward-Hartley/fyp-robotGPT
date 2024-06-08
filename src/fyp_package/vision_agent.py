@@ -91,7 +91,9 @@ class VisionAgent:
         lvars=None
 
         if self._cfg['include_gptv_context']:
-            pass # TODO: test whether vision agent needs to include gptv context
+            self.add_message(build_image_message(config.image_to_display_in_message_path))
+            utils.log_viewed_image(config.image_to_display_in_message_path, config.viewed_image_logs_directory)
+
 
         while not end:
 
@@ -125,6 +127,12 @@ class VisionAgent:
             utils.log_completion(self._name, system_message, config.latest_generation_logs_path)
 
             self.add_message(build_message(system_message, 'system'))
+
+            if sections[3] == 'RET':
+                end = True
+                if DEBUG:
+                    print("Returned value:", eval(sections[4], gvars, lvars))
+                return self.confirm_return(eval(sections[4], gvars, lvars), query, gvars, lvars)
 
             if "display_image(" in code_str:
                 self.add_message(build_image_message(config.image_to_display_in_message_path))

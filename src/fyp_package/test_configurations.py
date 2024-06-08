@@ -115,4 +115,6 @@ minimal_prompts['top_and_vision']['vision_assistant']['top_system_message'] = v_
 robotic_code_as_policy = copy.deepcopy(all_features)
 robotic_code_as_policy['robot_agent']['top_system_message'] = r_prompts.cap_top_system_message
 robotic_code_as_policy['robot_agent']['prompt_examples'] = [r_prompts.cap_format_example]
+robotic_code_as_policy['vision_assistant']['top_system_message'] = v_prompts.vision_cap_top_system_message
+robotic_code_as_policy['vision_assistant']['prompt_examples'] = [v_prompts.vision_cap_format_example]
 

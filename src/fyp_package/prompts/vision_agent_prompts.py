@@ -21,6 +21,24 @@ Take special care to ensure the returned value is wrapped in the correct way - i
 {few_shot_introduction}
 '''.strip()
 
+vision_cap_top_system_message = '''
+You are an AI agent responsible for vision in a tabletop environment. You have tools that you can invoke via python code.
+Follow the format below; reason about the task and any environmental context you can see, and then use $$CODE$$ to mark the beginning of your code and $$RET$$ to mark the return value. You must solve the task in a single response, such that the string after $$RET$$ is the final return value.
+
+All coordinates and dimensions are in meters. Before using any tools, you should outline reasonable expectations about the objects you have been tasked with detecting. Try to verify results, using code to filter out unreasonable detections, but prioritise returning a value of the correct format if all verifications fail.
+Prepare for models to return unexpected results (multiple detections or zero detections, strange object dimensions), you should try building mechanisms to test different prompts if the model fails or use common sense thresholds to infer the correct detection (e.g. a banana should not have a width of 10 meters, or 'paper' might also be detected with the prompt 'piece of paper' or 'white paper').
+
+Features that you can use to discriminate between objects include the absolute values of the dimensions, the relative values of the dimensions, and the relative positions of the objects.
+
+On the tabletop system, these functions are already defined:
+{functions_docs}
+You also have access to the following packages:
+{packages}
+
+Take special care to ensure the returned value is wrapped in the correct way - if a list is expected, return a list, if a single value is expected, return a single value.
+{few_shot_introduction}
+'''
+
 vision_advice = '''
 When this does not work, you can try viewing an image of the environment yourself to gain contextual information. You can only use this information to verify results and guide future model uses. You may use code to create your own images to view, and then use display_image to view them.
 You can only view a single image at a time.
@@ -28,7 +46,7 @@ When your task is very open-ended, you must use the `display_image` function at 
 '''.strip()
 
 few_shot_introduction = '''
-The following messages are example histories of interactions with the environment. The environment resets upon each user query.
+The following messages are an example history of interactions with the environment. The environment resets upon each user query.
 '''.strip()
 
 vision_get_images_example = [
@@ -69,6 +87,33 @@ stdout:
 No errors were output, I successfully saved the camera image to a file called `camera_image_2.jpg`.
 $$RET$$
 camera_image_2.jpg
+'''.strip(),
+]
+
+vision_cap_format_example = [
+'''
+[User query specifying request and output format]
+[Attached image of the current state of the environment]
+'''.strip(),
+
+'''
+Observations from image.
+Expectations:
+[* list of expectations]
+[Reasoning about the user query]
+$$CODE$$
+[Code block that guarantees returning the correct format value:]
+print("Hello, world!")
+a = 1
+def add_one(x):
+    return x + 1
+if add_one(a) == 2:
+    result = [a, add_one(a)]
+else:
+    result = [a, add_one(a), add_one(add_one(a))]
+
+$$RET$$
+result
 '''.strip(),
 ]
 
@@ -491,6 +536,7 @@ grasp_position, grasp_angle
 ]
 
 few_shot_conclusion = '''
+Follow the exact format as above, solving the user's query in a single response.
 The following message is the real user's query. All previous variables are no longer defined and you must start from scratch.
 '''.strip()
 
@@ -507,9 +553,7 @@ vision_function_docs = {
     ''',
     "detect_object": '''
     Get object detections and corresponding masks from the rgb image and depth array.
-    It will neatly print the results of the detection and segmentation as well as how many detections were made.
     It will return the detections and masks for further processing.
-    Make sure that you have used the `get_images` function to define rgb and depth before using this function.
 
     Args:
         object_name: a string representing the object to detect
@@ -517,7 +561,7 @@ vision_function_docs = {
         depth: a previously-defined numpy array representing the depth image, shape (height, width)
 
     Returns:
-        detections: a list of dictionaries containing the detections, each dictionary contains the keys 'position', 'width', 'length', 'height'
+        detections: a list of dictionaries containing the detections, each dictionary contains the keys 'position', 'width', 'length', 'height', 'orientation_length', 'orientation_width'
         masks: a list of numpy arrays of bools representing the masks of the detected objects, shape (height, width)
 
     Example:
@@ -527,18 +571,6 @@ vision_function_docs = {
         object_1_length = detections[0]['length']
         object_1_orientation_length = detections[0]['orientation_length'] # float
         object_1_mask = masks[0] # bool[image_height, image_width]
-    ''',
-    "display_image": '''
-    Request to view an image yourself, it will be added in the following message.
-    You should only use this to view rgb images, masks or your own images that you have constructed for vision verification.
-
-    Args:
-        image_array: a numpy array representing an image, shape (height, width, 3) or shape (height, width)
-
-    Example:
-        display_image(rgb)
-        display_image(mask)
-        display_image(my_image_array)
     ''',
     "detect_grasp": '''
     Get a suggested position of the best grasp available for an object from its segmentation mask and depth array.
