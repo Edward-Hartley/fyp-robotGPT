@@ -387,10 +387,15 @@ def main():
         print_runs_metrics(run_ids)
 
     #vision tests
-    for i in range(2):
-        vision_test_run_id = 61 + i
+    for i in [60, 61, 90]:
+        vision_test_run_id = i
         # print vision assistant usage
         print_vision_test_metrics(vision_test_run_id)
+
+    # prompt experiments
+    for i in range(9):
+        run_ids = list(range(i*3+63, (i+1)*3+63))
+        print_runs_metrics(run_ids)
 
 
 
