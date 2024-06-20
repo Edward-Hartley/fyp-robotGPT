@@ -141,7 +141,7 @@ class PickPlaceEnv():
     self.ee_link_id = 8  # Link ID of Panda end effector.
     self.tip_link_id = 11  # Link ID of gripper finger tips. # wanted 11 but it is not appearing
     self.gripper = None
-    self.gripper_height = 0.01
+    self.gripper_height = -0.01
 
     self.render = render
     self.high_res = high_res
@@ -276,10 +276,14 @@ class PickPlaceEnv():
       orientation = pybullet.getQuaternionFromEuler(self.home_ee_euler)
 
     ee_xyz, ee_quat = self.get_ee_pose()
-    while np.linalg.norm(position - ee_xyz) > 0.01 or np.linalg.norm(orientation - ee_quat) > 0.05:
+    count = 0
+    while np.linalg.norm(position - ee_xyz) > 0.01 or (np.linalg.norm(orientation - ee_quat) > 0.05 and np.linalg.norm(orientation - ee_quat) < 1.95):
       self.movep(position, orientation)
       self.step_sim_and_render()
       ee_xyz, ee_quat = self.get_ee_pose()
+      count += 1
+      if count > 2000:
+        break
 
   def step(self, action=None):
     """Do pick and place motion primitive."""
@@ -294,14 +298,14 @@ class PickPlaceEnv():
     # Set fixed primitive z-heights.
     hover_xyz = np.float32([pick_pos[0], pick_pos[1], 0.2])
     if pick_pos.shape[-1] == 2:
-      pick_xyz = np.append(pick_pos, 0.02)
+      pick_xyz = np.append(pick_pos, 0.005)
     else:
       pick_xyz = pick_pos
     if place_pos.shape[-1] == 2:
-      place_xyz = np.append(place_pos, 0.15)
+      place_xyz = np.append(place_pos, 0.13)
     else:
       place_xyz = place_pos
-      place_xyz[2] = 0.15
+      place_xyz[2] = 0.13
 
     # Move to object.
     ee_xyz = self.get_ee_pos()
@@ -338,7 +342,7 @@ class PickPlaceEnv():
       ee_xyz = self.get_ee_pos()
 
     # Place down object.
-    while (not self.gripper.detect_contact()) and (place_xyz[2] > 0.03):
+    while (not self.gripper.detect_contact()) and (place_xyz[2] > 0.02):
       place_xyz[2] -= 0.001
       self.movep(place_xyz)
       for _ in range(3):

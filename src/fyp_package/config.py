@@ -43,6 +43,8 @@ else:
         fov = latest_camera_specs["fov"]
         focal_lengths = [intrinsics[0, 0], intrinsics[1, 1]]
 
+    view_image_crop_left = 460
+
 
 #### Object detection
 
@@ -126,6 +128,7 @@ chosen_depth_image_path = "./data/chosen_depth_image.npy"
 
 image_to_display_in_message_path = "./data/image_to_display_in_message.png"
 viewed_image_logs_directory = "./data/viewed_image_logs/"
+temp_image_path = "./data/temp_image.png"
 
 #### Grasp detection
 
@@ -143,5 +146,13 @@ robot_server_port = 9999
 
 default_openai_model = "gpt-4o"
 cheap_openai_model = "gpt-3.5-turbo"
-model_temperature = 0.0
+model_temperature = 0.5
+max_tokens = 2048
+stop=None
 completions_compatible_openai_model = "gpt-3.5-turbo-instruct"
+
+#### Logging
+
+run_id_file_path = "./results/run_id.txt"
+log_directory_path = "./results/log_{run_id}/"
+log_file_path = "./results/log_{run_id}/logs.txt"

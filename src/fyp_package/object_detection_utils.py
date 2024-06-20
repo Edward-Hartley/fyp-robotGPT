@@ -1,23 +1,27 @@
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
-from fyp_package import config
+from fyp_package import config, agent_logging
 from fyp_package.utils import tf
 from shapely.geometry import MultiPoint, Polygon, polygon
 
+@agent_logging.log_object_cube_calculations
 def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_array, camera_position, camera_orientation_q, camera_intrinsics):
 
     cubes_coords, cubes_orients = get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_position, camera_orientation_q, camera_intrinsics)
 
-    results = [{} for _ in range(len(segmentation_texts))]
+    results = [{} for _ in range(len(cubes_coords))]
 
     for i, cube_coords in enumerate(cubes_coords):
 
         print("Detection " + str(i + 1))
 
-        width = np.around(np.linalg.norm(cube_coords['bottom']['corners'][1] - cube_coords['bottom']['corners'][0]), 3)
-        length = np.around(np.linalg.norm(cube_coords['bottom']['corners'][2] - cube_coords['bottom']['corners'][1]), 3)
+        side_1 = np.around(np.linalg.norm(cube_coords['bottom']['corners'][1] - cube_coords['bottom']['corners'][0]), 3)
+        side_2 = np.around(np.linalg.norm(cube_coords['bottom']['corners'][2] - cube_coords['bottom']['corners'][1]), 3)
         height = np.around(np.linalg.norm(cube_coords['top']['corners'][0] - cube_coords['bottom']['corners'][0]), 3)
+
+        width = min(side_1, side_2)
+        length = max(side_1, side_2)
 
         print("Position of " + segmentation_texts[i] + ":", list(np.around(cube_coords['top']['center'], 3)))
         results[i]['position'] = list(np.around(cube_coords['top']['center'], 3))
@@ -33,13 +37,15 @@ def get_object_cube_from_segmentation(masks, segmentation_texts, image, depth_ar
         if width < length:
             print("Orientation along shorter side (width):", np.around(cubes_orients[i][0], 3))
             print("Orientation along longer side (length):", np.around(cubes_orients[i][1], 3), "\n")
-            results[i]['orientation'] = {'width': np.around(cubes_orients[i][0], 3), 'length': np.around(cubes_orients[i][1], 3)}
+            results[i]['orientation_width'] = np.around(cubes_orients[i][0], 3)
+            results[i]['orientation_length'] = np.around(cubes_orients[i][1], 3)
         else:
             print("Orientation along shorter side (length):", np.around(cubes_orients[i][1], 3))
             print("Orientation along longer side (width):", np.around(cubes_orients[i][0], 3), "\n")
-            results[i]['orientation'] = {'length': np.around(cubes_orients[i][1], 3), 'width': np.around(cubes_orients[i][0], 3)}
+            results[i]['orientation_width'] = np.around(cubes_orients[i][1], 3)
+            results[i]['orientation_length'] = np.around(cubes_orients[i][0], 3)
 
-    print("Total number of detections made:", len(segmentation_texts))
+    print("Total number of detections made:", len(cubes_coords))
 
     return results
 
@@ -67,11 +73,13 @@ def get_max_contour(mask, mask_width, mask_height):
     thresh[mask] = 255
 
     contours, hierarchy = cv.findContours(thresh, cv.RETR_LIST, cv.CHAIN_APPROX_TC89_L1)
+    if len(contours) == 0:
+        return None
     cnt = contours[0]
 
     contour_index = None
 
-    max_length = 0
+    max_length = 100
     for c, contour in enumerate(contours):
         contour_points = [(c, r) for r in range(0, mask_height, step) for c in range(0, mask_width, step) if cv.pointPolygonTest(contour, (c, r), measureDist=False) == 1]
         if len(contour_points) > max_length:
@@ -93,6 +101,10 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
     bounding_cubes_orientations = []
 
     for mask in masks:
+        if config.simulation == False:
+            mask = erode_mask(mask, 25)
+        else:
+            mask = erode_mask(mask, 1)
 
         contour = get_max_contour(mask, image_width, image_height)
 
@@ -113,9 +125,9 @@ def get_bounding_cube_from_point_cloud(image, masks, depth_array, camera_positio
         contour_world_points = get_world_points_world_frame(camera_position, camera_orientation_q, camera_K, contour_pixel_points)
 
         # # use matplotlib to plot the height map
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(np.array(contour_world_points)[::20, 0], np.array(contour_world_points)[::20, 1], np.array(contour_world_points)[::20, 2])
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.scatter(np.array(contour_world_points)[::20, 0], np.array(contour_world_points)[::20, 1], np.array(contour_world_points)[::20, 2])
         # plt.show()
 
 
@@ -176,3 +188,35 @@ def get_world_points_world_frame(camera_position, camera_orientation_q, camera_K
 
     return points[:, :3]
 
+def erode_mask(mask, erosion_size):
+    kernel = np.ones((erosion_size, erosion_size), np.uint8)
+    return cv.erode(mask.astype(np.uint8), kernel, iterations=1).astype(bool)
+
+
+if __name__ == '__main__':
+    agent_logging.setup_logging()
+    masks = np.load(config.latest_segmentation_masks_path)
+    phrases = ["paper cup"] * len(masks)
+
+    plt.imshow(masks[0])
+    plt.show()
+    plt.imshow(erode_mask(masks[0], 20))
+    plt.show()
+
+    depth_array = np.load(config.latest_depth_image_path)
+
+    plt.imshow(depth_array)
+    plt.show()
+
+    # plot mask over depth image
+    plt.imshow(depth_array[400:800, 1000:1259])
+    plt.imshow(masks[0][400:800, 1000:1259], alpha=0.5)
+    plt.show()
+
+    # plot eroded mask over depth image
+    plt.imshow(depth_array[400:800, 1000:1259])
+    plt.imshow(erode_mask(masks[0][400:800, 1000:1259], 30), alpha=0.5)
+    plt.show()
+
+    results = get_object_cube_from_segmentation(masks, phrases, cv.imread(config.latest_rgb_image_path), np.load(config.latest_depth_image_path), config.camera_position, config.camera_orientation_q, config.intrinsics)
+    print(results)

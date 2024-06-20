@@ -13,10 +13,15 @@ try:
 except RuntimeError:
     pass
 
-def predict_worker(client_socket):
+def predict_worker(client_socket, first_data):
+    data = None
     model = LangSAM(sam_type="vit_b")
     while True:
-        data = utils.recv_data(client_socket)
+        if data is None:
+            data = first_data
+        else:
+            data = utils.recv_data(client_socket)
+            
         if not data:
             break
         if data == "close":
@@ -47,11 +52,17 @@ class LangsamServer:
         print("Server listening on port", port)
 
     def handle_client(self, client_socket):
-        process = Process(target=predict_worker, args=(client_socket,))
-        process.start()
-        process.join()
+        while True:
+            data = utils.recv_data(client_socket)
+            if not data:
+                break
+            if data == "close":
+                continue
+            process = Process(target=predict_worker, args=(client_socket, data))
+            process.start()
+            process.join()
 
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
 
         client_socket.close()
 

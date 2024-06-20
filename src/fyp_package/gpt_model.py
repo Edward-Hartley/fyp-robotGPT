@@ -5,8 +5,9 @@ from time import sleep
 import os
 import json
 import base64
-from fyp_package import config, utils
+from fyp_package import config, utils, agent_logging
 import base64
+import cv2
 
 def get_api_key():
     # openai api key in .openai_key file
@@ -20,7 +21,8 @@ class GptModel:
                  temperature=config.model_temperature,
                  max_tokens=1000,
                  stop=None,
-                 client=None
+                 client=None,
+                 name=None
                 ):
         if not client:
             self.client = OpenAI(api_key=get_api_key())
@@ -31,7 +33,10 @@ class GptModel:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.stop = stop
+        self.name = name
+        self.most_recent_usage = None
 
+    @agent_logging.log_chat_completion
     def chat_completion(self, messages, tool_choice="auto"):
 
         while True:
@@ -60,13 +65,21 @@ class GptModel:
         if self.stop is not None:
             kwargs['stop'] = self.stop
 
-        message = self.client.chat.completions.create(**kwargs).choices[0].message
+        completion = self.client.chat.completions.create(**kwargs)
+        self.most_recent_usage = completion.usage
 
-        return message.content.strip()
+        return completion.choices[0].message.content.strip()
     
 # encode image to base64
 # image path must point to either png or jpg file
 def encode_image(image_path):
+    if not config.simulation:
+        # load image and crop it from the left by config.view_image_crop_left
+        image = cv2.imread(image_path)
+        image = image[:, config.view_image_crop_left:]
+        cv2.imwrite(config.temp_image_path, image)
+        image_path = config.temp_image_path
+
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
     
@@ -123,12 +136,22 @@ def build_image_tool_response(image_path, tool_call_id, detail="low", text=None)
 
 
 if __name__ == '__main__':
-    gpt = GptModel(model=config.default_openai_model)
+    agent_logging.setup_logging()
+    gpt = GptModel(model=config.cheap_openai_model, name='test')
     messages = []
-    messages.append(build_image_message("./data/latest_rgb_image.png", text="This is the current scene."))
-    messages.append(build_image_message("./data/image_to_display_in_message.png", text="I attempted to make a segmentation mask for a paper cup. I then overlayed my attempted mask on the scene, making the pixels more red where the mask is True. Is this segmentation for the paper cup correct?"))
-    messages.append(build_message("No, the segmentation mask you created is not correct for the paper cup. The red overlay is primarily on the white bowl, not the paper cup. The paper cup is to the right of the bowl and is not covered by the red overlay. You need to adjust the mask to correctly cover the paper cup.", 'assistant'))
-    messages.append(build_image_message("./data/image_to_display_in_message_2.png", text="what about this one?"))
+
+    message = '''
+    Hello please can you just repeat the below text exactly, character for character, including any punctuation, capitalisation, and line breaks:
+    <text begin>
+    ##$$**
+
+
+
+    **$$##
+    <text end>
+'''
+
+    messages.append(build_message(message, "user"))
 
     completion = gpt.chat_completion(messages)
     print(completion)

@@ -21,7 +21,7 @@ from pygments.formatters import TerminalFormatter
 
 from fyp_package import config, object_detection_utils, utils, model_client, environment
 from fyp_package.experiments.CAP_vision_agent_prompts import *
-from fyp_package.experiments import vision_LMP
+from fyp_package import vision_agent
 
 client = OpenAI(api_key=utils.get_api_key())
 
@@ -450,7 +450,7 @@ class LMP_wrapper():
         np.save(depth_path, depth)
         np.save(mask_path, mask)
 
-        result = self.model_client.contact_graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
+        result = self.model_client.graspnet_predict(depth_path=depth_path, rgb_path=None, mask_path=mask_path, save=True)
         if result is None:
             print("No grasp detected. Returned None, None.")
             return None
@@ -610,7 +610,7 @@ def setup_LMP(env: environment.Environment, cfg_tabletop):
   vision_variable_vars['detect_grasp'] = LMP_env.detect_grasp
 
   # creating the vision LMP for object detection
-  lmp_vision = vision_LMP.setup_vision_LMP(environment_vars=vision_variable_vars)
+  lmp_vision = vision_agent.setup_vision_agent(environment_vars=vision_variable_vars)
 
   variable_vars['vision_assistant'] = lmp_vision
 

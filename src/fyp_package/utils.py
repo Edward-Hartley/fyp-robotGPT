@@ -4,6 +4,9 @@ import math
 import pickle
 import cv2
 import os
+import ast
+import matplotlib.pyplot as plt
+
 
 # as defined in proto.py but using math for trigonometric functions
 def euler2quat(x, y, z):
@@ -250,8 +253,8 @@ def log_viewed_image(path, log_directory):
     os.makedirs(log_directory, exist_ok=True)
     existing_files = os.listdir(log_directory)
     if len(existing_files) > 0:
-        last_file = sorted(existing_files)[-1]
-        last_num = int(last_file.split('_')[-1].split('.')[0])
+        file_nums = [int(file.split('_')[-1].split('.')[0]) for file in existing_files]
+        last_num = max(file_nums)
     else:
         last_num = -1
 
@@ -259,3 +262,11 @@ def log_viewed_image(path, log_directory):
     new_path = os.path.join(log_directory, f"image_{new_num}.png")
     # copy file across
     os.system(f"cp {path} {new_path}")
+
+
+def view_masks(path='./data/latest_segmentation_masks.npy'):
+
+    masks = np.load(path, allow_pickle=True)
+    for mask in masks:
+        plt.imshow(mask)
+        plt.show()
