@@ -132,7 +132,7 @@ temp_image_path = "./data/temp_image.png"
 
 #### Grasp detection
 
-contact_graspnet_checkpoint_dir = "/home/edward/Imperial/fyp-robotGPT/src/fyp_package/experiments/contact_graspnet/checkpoints/scene_test_2048_bs3_hor_sigma_001"
+contact_graspnet_checkpoint_dir = "/home/edward/Imperial/fyp-robotGPT/src/fyp_package/contact_graspnet/checkpoints/scene_test_2048_bs3_hor_sigma_001"
 
 #### Server ports
 

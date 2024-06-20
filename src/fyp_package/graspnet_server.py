@@ -10,7 +10,7 @@ import sys
 import cv2
 import gc
 
-from fyp_package.experiments.contact_graspnet.contact_graspnet import config_utils, contact_grasp_estimator
+from fyp_package.contact_graspnet.contact_graspnet import config_utils, contact_grasp_estimator
 from fyp_package import config, utils
 
 # Ensure the 'spawn' start method is used for multiprocessing

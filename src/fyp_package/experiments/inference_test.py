@@ -1,4 +1,4 @@
-from fyp_package.experiments.contact_graspnet.contact_graspnet import config_utils, contact_grasp_estimator, visualization_utils, data
+from fyp_package.contact_graspnet.contact_graspnet import config_utils, contact_grasp_estimator, visualization_utils, data
 from fyp_package import config
 
 import os
