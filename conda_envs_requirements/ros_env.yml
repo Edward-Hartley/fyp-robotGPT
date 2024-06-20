@@ -1,0 +1,5 @@
+name: ros_env
+channels:
+  - defaults
+  - conda-forge
+prefix: /home/edward/miniconda3/envs/ros_env
