@@ -1,7 +1,7 @@
 # GPT Powered Robotic Agent
 
 
-![Robot in Action](./examples_images/robot_gpt)
+![Robot in Action](./examples_images/robot_gpt.png)
 
 My final year project focusing on using large language models to generate code for robot control
 
