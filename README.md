@@ -44,3 +44,12 @@ git clone https://github.com/username/repository_name.git
 cd repository_name
 # Follow the specific setup instructions provided in their README
 ```
+
+### Hardware Dependencies
+
+If you would like to run this physically instead of in simulation, you will also need a camera and a robot arm. Then, reconfigure robot_server.py and realsense_camera.py to supply the same interface to environment.py as they currently do.
+
+### Robot and model servers
+
+In order to run each perception model and the robot server in their corresponding environments, modify and use the start_*.sh files to load the correct environment and initialse the servers.
+
