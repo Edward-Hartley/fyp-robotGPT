@@ -5,9 +5,11 @@ from time import sleep
 import os
 import json
 import base64
-from fyp_package import config, utils, agent_logging
+from fyp_package import config, utils
 import base64
 import cv2
+
+from fyp_package.experiments import agent_logging
 
 def get_api_key():
     # openai api key in .openai_key file

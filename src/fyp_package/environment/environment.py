@@ -6,7 +6,10 @@ import numpy as np
 import cv2
 import time
 
-from fyp_package import config, robot_client, realsense_camera, pick_and_place_env, utils, agent_logging
+from fyp_package import config, utils
+from fyp_package.environment.environment import pick_and_place_env, robot_client
+from fyp_package.environment import realsense_camera
+from fyp_package.experiments import agent_logging
 
 class Environment(ABC):
     def __init__(self, obj_list):

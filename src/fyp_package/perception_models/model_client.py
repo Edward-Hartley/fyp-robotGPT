@@ -2,8 +2,10 @@ import socket
 import pickle
 import matplotlib.pyplot as plt
 from PIL import Image
-from fyp_package import config, utils, agent_logging
+from fyp_package import config, utils
 import numpy as np
+
+from fyp_package.experiments import agent_logging
 # from torchvision.transforms import functional as transforms
 # from torchvision.utils import draw_bounding_boxes, draw_segmentation_masks
 
@@ -101,7 +103,7 @@ if __name__ == "__main__":
     client = ModelClient()
     # Example usage
     try:
-        from fyp_package import environment
+        from fyp_package.environment import environment
         import pybullet as pb
         import cv2
         agent_logging.setup_logging()

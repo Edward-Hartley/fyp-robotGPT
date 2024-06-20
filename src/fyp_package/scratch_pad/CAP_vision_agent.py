@@ -19,9 +19,11 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
 
-from fyp_package import config, object_detection_utils, utils, model_client, environment
+from fyp_package import config, object_detection_utils, utils
+from fyp_package.environment import environment
 from fyp_package.experiments.CAP_vision_agent_prompts import *
 from fyp_package import vision_agent
+from fyp_package.perception_models import model_client
 
 client = OpenAI(api_key=utils.get_api_key())
 

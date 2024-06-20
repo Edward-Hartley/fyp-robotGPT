@@ -1,7 +1,8 @@
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
-from fyp_package import config, agent_logging
+from fyp_package import config
+from fyp_package.experiments import agent_logging
 from fyp_package.utils import tf
 from shapely.geometry import MultiPoint, Polygon, polygon
 

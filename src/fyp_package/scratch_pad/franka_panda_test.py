@@ -85,7 +85,7 @@
 
 # input("Press Enter to continue...")
 
-from fyp_package import environment
+from fyp_package.environment import environment
 import pybullet
 
 env = environment.SimulatedEnvironment(3, 3)

@@ -1,5 +1,5 @@
 from fyp_package import config
-from fyp_package.agent_logging import read_logged_results
+from fyp_package.experiments.agent_logging import read_logged_results
 import os
 import re
 from datetime import datetime

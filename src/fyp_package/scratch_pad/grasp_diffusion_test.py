@@ -1,7 +1,8 @@
 import numpy as np
 import os
 import cv2
-from fyp_package import config, utils, model_client
+from fyp_package import config, utils
+from fyp_package.perception_models import model_client
 
 models = model_client.ModelClient()
 

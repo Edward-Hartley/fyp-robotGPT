@@ -1,7 +1,8 @@
 # %%
 from io import StringIO
 from contextlib import redirect_stdout
-from fyp_package import config, utils, gpt_model, agent_logging
+from fyp_package import config, utils, gpt_model
+from fyp_package.experiments import agent_logging
 from fyp_package.gpt_model import build_message, build_image_message
 from fyp_package.prompts.vision_agent_prompts import *
 

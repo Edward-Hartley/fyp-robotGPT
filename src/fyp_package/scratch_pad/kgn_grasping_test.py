@@ -36,7 +36,7 @@ import pybullet
 # %%
 
 # imports for Franka Panda environment
-from fyp_package import pick_and_place_env as franka_env
+from fyp_package.environment.environment import pick_and_place_env as franka_env
 
 #%%
 

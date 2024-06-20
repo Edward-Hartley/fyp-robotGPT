@@ -1,7 +1,11 @@
 import numpy as np
-from fyp_package import model_client, realsense_camera, robot_client, config, object_detection_utils
+from fyp_package import config, object_detection_utils
 import matplotlib.pyplot as plt
 import time
+
+from fyp_package.environment.environment import robot_client
+from fyp_package.environment import realsense_camera
+from fyp_package.perception_models import model_client
 
 
 camera = realsense_camera.RealsenseCamera()

@@ -7,8 +7,75 @@ import os
 import ast
 import matplotlib.pyplot as plt
 
+#### OpenAI utils
 
-# as defined in proto.py but using math for trigonometric functions
+def get_api_key():
+    # openai api key in .openai_key file
+    with open('.openai_key', 'r') as f:
+        return f.readline().strip()
+    
+#### Server utils
+
+def send_data(client_socket, data):
+    serialized_data = pickle.dumps(data)
+    length = len(serialized_data)
+    client_socket.sendall(length.to_bytes(4, 'big'))
+    client_socket.sendall(serialized_data)
+
+def recv_data(client_socket):
+    data_length = int.from_bytes(client_socket.recv(4), 'big')
+    data = bytearray()
+    while len(data) < data_length:
+        packet = client_socket.recv(data_length - len(data))
+        if not packet:
+            return None
+        data.extend(packet)
+    return pickle.loads(data)
+
+def print_openai_messages(messages):
+    for message in messages:
+        if message['role'] == 'assistant':
+            print(f"Assistant:\n{message['content']}")
+        elif message['role'] == 'user':
+            print(f"User:\n{message['content']}")
+        else:
+            print(f"System:\n{message['content']}")
+
+def log_completion(name, message, path):
+    with open(path, 'a') as f:
+        f.write(f"{name}:\n{message}\n\n")
+
+def save_numpy_image(path, image):
+    cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+
+def load_numpy_image(path):
+    return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
+
+def log_viewed_image(path, log_directory):
+    os.makedirs(log_directory, exist_ok=True)
+    existing_files = os.listdir(log_directory)
+    if len(existing_files) > 0:
+        file_nums = [int(file.split('_')[-1].split('.')[0]) for file in existing_files]
+        last_num = max(file_nums)
+    else:
+        last_num = -1
+
+    new_num = last_num + 1
+    new_path = os.path.join(log_directory, f"image_{new_num}.png")
+    # copy file across
+    os.system(f"cp {path} {new_path}")
+
+
+def view_masks(path='./data/latest_segmentation_masks.npy'):
+
+    masks = np.load(path, allow_pickle=True)
+    for mask in masks:
+        plt.imshow(mask)
+        plt.show()
+
+
+# Taken from below repo with permission from owner
+# https://github.com/chutsu/proto
 def euler2quat(x, y, z):
   """
   Convert yaw, pitch, roll in radians to a quaternion.
@@ -204,69 +271,3 @@ def rotate_euler_by_inverse_of_quat(euler, q):
   Rotate euler angles by the inverse of a quaternion.
   """
   return quat2euler(rot2quat((quat2rot(q).T @ quat2rot(euler2quat(*euler)))))
-
-#### OpenAI utils
-
-def get_api_key():
-    # openai api key in .openai_key file
-    with open('.openai_key', 'r') as f:
-        return f.readline().strip()
-    
-#### Server utils
-
-def send_data(client_socket, data):
-    serialized_data = pickle.dumps(data)
-    length = len(serialized_data)
-    client_socket.sendall(length.to_bytes(4, 'big'))
-    client_socket.sendall(serialized_data)
-
-def recv_data(client_socket):
-    data_length = int.from_bytes(client_socket.recv(4), 'big')
-    data = bytearray()
-    while len(data) < data_length:
-        packet = client_socket.recv(data_length - len(data))
-        if not packet:
-            return None
-        data.extend(packet)
-    return pickle.loads(data)
-
-def print_openai_messages(messages):
-    for message in messages:
-        if message['role'] == 'assistant':
-            print(f"Assistant:\n{message['content']}")
-        elif message['role'] == 'user':
-            print(f"User:\n{message['content']}")
-        else:
-            print(f"System:\n{message['content']}")
-
-def log_completion(name, message, path):
-    with open(path, 'a') as f:
-        f.write(f"{name}:\n{message}\n\n")
-
-def save_numpy_image(path, image):
-    cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-
-def load_numpy_image(path):
-    return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
-
-def log_viewed_image(path, log_directory):
-    os.makedirs(log_directory, exist_ok=True)
-    existing_files = os.listdir(log_directory)
-    if len(existing_files) > 0:
-        file_nums = [int(file.split('_')[-1].split('.')[0]) for file in existing_files]
-        last_num = max(file_nums)
-    else:
-        last_num = -1
-
-    new_num = last_num + 1
-    new_path = os.path.join(log_directory, f"image_{new_num}.png")
-    # copy file across
-    os.system(f"cp {path} {new_path}")
-
-
-def view_masks(path='./data/latest_segmentation_masks.npy'):
-
-    masks = np.load(path, allow_pickle=True)
-    for mask in masks:
-        plt.imshow(mask)
-        plt.show()

@@ -63,8 +63,11 @@
 
 # # bowl should have dimensions [0.12325251 0.125995   0.04312475]
 
-from fyp_package import environment, config, model_client, object_detection_utils
+from fyp_package import config, object_detection_utils
 import numpy as np
+
+from fyp_package.environment import environment
+from fyp_package.perception_models import model_client
 
 env = environment.SimulatedEnvironment(3, 3)
 model = model_client.ModelClient()

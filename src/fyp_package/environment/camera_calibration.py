@@ -1,13 +1,15 @@
 import cv2
 import numpy as np
 import time
-from fyp_package import robot_client, realsense_camera
-from fyp_package.experiments.proto import plot_tf, plot_set_axes_equal, tf, quat2rot, tf_rot, tf_trans, tf_inv, AprilGrid
+from fyp_package.environment import realsense_camera
+from fyp_package.environment.environment import robot_client
+from fyp_package.scratch_pad.proto import plot_tf, plot_set_axes_equal, AprilGrid
+from fyp_package.utils import tf_rot, tf_trans, quat2rot, tf
 import matplotlib.pyplot as plt
 
 def inv_rot_and_trans(R, t):
     tf_m = tf(R, t)
-    inv_tf_m = tf_inv(tf_m)
+    inv_tf_m = np.linalg.inv(tf_m)
     return tf_rot(inv_tf_m), tf_trans(inv_tf_m)
 
 def new_tf_figure(R, t, ax=None):
@@ -39,12 +41,7 @@ if __name__ == "__main__":
     ]
     robot = robot_client.RobotClient()
     camera = realsense_camera.RealsenseCamera()
-    # grid = AprilGrid(tag_rows=6, tag_cols=6, tag_size=0.038, tag_spacing=0.3)
-
     K = camera.get_intrinsics()
-    # print(camera.get_resolution())
-    # print(K)
-    # print(camera.intrinsics)
 
     t_base2grippers = []
     R_base2grippers = []
@@ -77,23 +74,14 @@ if __name__ == "__main__":
 
         (all_corners, ids, rejected) = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)
 
-        # cv2.aruco.drawDetectedMarkers(gray, all_corners, ids)
-        # # just to check cv2 image indexing draw a line from top left to middle right
-        # cv2.line(gray, (0, 0), (200, 100), (255, 0, 0), 5)
-
-        # cv2.imshow('gray', gray)
-        # cv2.waitKey(0)
-
         # reasonable number of matches for good pnp
         if ids is None or len(ids) < 3:
             continue
 
         t_gripper2base, gripper2base_q = result
-        gripper2base_q = gripper2base_q[3:] + gripper2base_q[:3]
+
         # invert to get base to gripper
-
         R_base2gripper, t_base2gripper = inv_rot_and_trans(quat2rot(gripper2base_q), t_gripper2base)
-
         t_base2grippers.append(t_base2gripper)
         R_base2grippers.append(R_base2gripper)
 
@@ -109,49 +97,11 @@ if __name__ == "__main__":
             for i, corner in enumerate(corners[0]):
                 grid.add_keypoint(ts=None, tag_id=tag_id[0], corner_idx=corner_mappings[i], kp=corner)
 
-        # print(grid.data[0])
-
         # solve pnp
         target2cam_t, target2cam_R = grid.solvepnp(K)
 
         t_target2cams.append(target2cam_t)
         R_target2cams.append(target2cam_R)
-
-        # target2cam_m = tf(target2cam_R, target2cam_t)
-
-        # plt.figure()
-        # ax = plt.axes(projection='3d')
-        # ax.set_xlabel('X')
-        # ax.set_ylabel('Y')
-        # ax.set_zlabel('Z')
-        # plot_tf(ax, target2cam_m)
-        # plot_set_axes_equal(ax)
-        # plt.show()
-
-        # verifying cam2target
-        # project points
-        # object_points = grid.get_object_points()
-        # object_points = np.array([x[2] for x in object_points])
-        # image_points, _ = cv2.projectPoints(object_points, cv2.Rodrigues(target2cam_R)[0], target2cam_t, K, np.array([0.0, 0.0, 0.0, 0.0]), None, None)
-        # # show image
-        # i = 0
-        # num = len(image_points)
-        # for point, object_point in zip(image_points, object_points):
-        #     i += 1
-        #     cv2.circle(image, tuple(point[0].astype(int)), 5, (0, 0 + i/num * 255, 255 - i/num * 255), -1)
-
-        # object_points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
-        # # project into camera frame
-        # image_points, _ = cv2.projectPoints(object_points, cv2.Rodrigues(target2cam_R)[0], target2cam_t, K, np.array([0.0, 0.0, 0.0, 0.0]), None, None)
-        # cv2.line(image, tuple(image_points[0][0].astype(int)), tuple(image_points[1][0].astype(int)), (0, 0, 255)) # red
-        # cv2.line(image, tuple(image_points[0][0].astype(int)), tuple(image_points[2][0].astype(int)), (0, 255, 0)) # green
-        # cv2.line(image, tuple(image_points[0][0].astype(int)), tuple(image_points[3][0].astype(int)), (255, 0, 0)) # blue
-        # cv2.imshow('gray', image)
-        # cv2.waitKey(0)
-
-
-
-
 
     # cv2 expects sequences of matlike objects
     R_base2grippers = [np.array(x) for x in R_base2grippers]
@@ -172,23 +122,35 @@ if __name__ == "__main__":
         R_target2cam=R_target2cams,
         t_target2cam=t_target2cams,
     )
+    t_cam2base = t_cam2base.flatten()
 
-    R_base2cam, t_base2cam = inv_rot_and_trans(R_cam2base, t_cam2base.flatten())
+    R_base2cam, t_base2cam = inv_rot_and_trans(R_cam2base, t_cam2base)
 
+    # Save the calibration results
+    calibration_results = {
+        "R_base2cam": R_base2cam,
+        "t_base2cam": t_base2cam,
+        "R_cam2base": R_cam2base,
+        "t_cam2base": t_cam2base
+    }
+    np.save("./data/calibration_results.npy", calibration_results)
+
+    # Checks
     print("t_base2cam: ", t_base2cam)
     print("R_base2cam: ", R_base2cam)
     print("t_cam2base: ", t_cam2base)
     print("R_cam2base: ", R_cam2base)
 
-
     new_tf_figure(R_base2cam, t_base2cam)
-    new_tf_figure(R_cam2base, t_cam2base.flatten())
+    new_tf_figure(R_cam2base, t_cam2base)
     plt.show()
 
-
-
-    
-
-
-
+    # object_points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    # # project into camera frame
+    # image_points, _ = cv2.projectPoints(object_points, cv2.Rodrigues(R_base2cam)[0], t_base2cam, K, np.array([0.0, 0.0, 0.0, 0.0]), None, None)
+    # cv2.line(image, tuple(image_points[0][0].astype(int)), tuple(image_points[1][0].astype(int)), (0, 0, 255)) # red
+    # cv2.line(image, tuple(image_points[0][0].astype(int)), tuple(image_points[2][0].astype(int)), (0, 255, 0)) # green
+    # cv2.line(image, tuple(image_points[0][0].astype(int)), tuple(image_points[3][0].astype(int)), (255, 0, 0)) # blue
+    # cv2.imshow('base_check', image)
+    # cv2.waitKey(0)
 

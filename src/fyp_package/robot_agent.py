@@ -6,7 +6,10 @@ from contextlib import redirect_stdout
 # imported just for agent to use
 import shapely.geometry, shapely.affinity
 
-from fyp_package import config, object_detection_utils, utils, model_client, environment, vision_agent, gpt_model, test_configurations, agent_logging
+from fyp_package import config, object_detection_utils, utils, vision_agent, gpt_model
+from fyp_package.environment import environment
+from fyp_package.experiments import agent_logging, test_configurations
+from fyp_package.perception_models import model_client
 import fyp_package.prompts.robot_agent_prompts as prompts
 import fyp_package.prompts.vision_agent_prompts as vision_prompts
 from fyp_package.gpt_model import build_message, build_image_message
